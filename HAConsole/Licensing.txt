@@ -1,0 +1,32 @@
+﻿
+
+Licensing & recognition for all the 3rd party source and modules used in this solution outlined below
+----------------------------------------------------------------------------------------------------------------------------------
+
+Sunrise/set code based from javascript at 
+           http://www.srrb.noaa.gov/highlights/sunrise/gen.html
+compiled by cjosh@comcast.net
+
+----------------------------------------------------------------------------------------------------------------------------------
+
+FastJSON
+Code Project Open License (CPOL) http://www.codeproject.com/info/cpol10.aspx
+(c) Mehdi Gholam, http://www.codeproject.com/Articles/159450/fastJSON
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+Alchemy websockets Library
+<http://www.olivinelabs.com/index.php/projects/71-alchemy-websockets>, 
+used under LGPL license. See <http://www.gnu.org/licenses/> for license details. 
+Alchemy Websockets is copyright 2011 Olivine Labs.
+
+---------------------------------------------------------------------------------------------------------------------------------------
+SQLite Public Domain copywrite
+http://www.sqlite.org/copyright.html
+All of the deliverable code in SQLite has been dedicated to the public domain by the authors. 
+All code authors, and representatives of the companies they work for, have signed affidavits 
+dedicating their contributions to the public domain and originals of those signed affidavits 
+are stored in a firesafe at the main offices of Hwaci. Anyone is free to copy, modify, 
+publish, use, compile, sell, or distribute the original SQLite code, either in source code 
+form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means. 
+
