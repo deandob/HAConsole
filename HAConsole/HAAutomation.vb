@@ -924,7 +924,7 @@ Public Class Automation
         End Select
         If IsNothing(GetRow) Then Return Nothing
         For Each dr As DataRow In GetRow
-            Dim DictRow As Dictionary(Of String, Object) = dr.Table.Columns.Cast(Of DataColumn)().ToDictionary(Function(col) col.ColumnName, Function(col) dr.Field(Of Object)(col.ColumnName))
+            Dim DictRow As IDictionary(Of String, Object) = dr.Table.Columns.Cast(Of DataColumn)().ToDictionary(Function(col) col.ColumnName, Function(col) dr.Field(Of Object)(col.ColumnName))
             GetColl.Add(DictRow)
         Next
         Return GetColl
@@ -933,7 +933,7 @@ Public Class Automation
     Public Shared Function ProcessAddMsg(Table As String, Data As System.Collections.Generic.List(Of Object)) As String
 
         ' TODO: Categories are coming across as numbers but typed as strings
-        Dim DataArray As Dictionary(Of String, Object) = CType(Data(0), Dictionary(Of String, Object))
+        Dim DataArray As IDictionary(Of String, Object) = CType(Data(0), IDictionary(Of String, Object))
         Dim Result As String = ""
         Select Case Table.ToUpper
             Case Is = "TRIGGERS"
@@ -995,7 +995,7 @@ Public Class Automation
 
     Public Shared Function ProcessUpdMsg(Table As String, Data As System.Collections.Generic.List(Of Object)) As String
         Dim Result As String = ""
-        Dim DataArray As Dictionary(Of String, Object) = CType(Data(0), Dictionary(Of String, Object))
+        Dim DataArray As IDictionary(Of String, Object) = CType(Data(0), IDictionary(Of String, Object))
         Select Case Table.ToUpper
             Case Is = "TRIGGERS"
                 Dim TrigChgMessage, TrigStateMessage As Structures.HAMessageStruc

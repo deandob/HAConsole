@@ -98,14 +98,14 @@ Namespace Utilities                                                             
 
         ' Raise an event on the host from the plugin
         Private Function RaiseHostEvent(SendMsg As Structures.HAMessageStruc) As String
-            Dim MessageStr As String = JSON.Instance.ToJSON(SendMsg)
+            Dim MessageStr As String = fastJSON.JSON.ToJSON(SendMsg)
             Return myhost.PluginEvent(MessageStr)                                           ' Call the host method to receive the data from the plugin
         End Function
 
         ' Receive an event from the host
         Private Function HostEvent(RecvJSONStr As String) As String Implements Plugins.IHAPlugin.HostEvent
             Try
-                RecvHostEvent(JSON.Instance.ToObject(Of Structures.HAMessageStruc)(RecvJSONStr))           ' Process the message
+                RecvHostEvent(fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(RecvJSONStr))           ' Process the message
             Catch ex As Exception           ' Incorrect JSON
                 'TODO: Send to messagelog that we have a plugin
                 Return ex.ToString
@@ -197,8 +197,8 @@ Namespace Utilities                                                             
                     ch.Add((currTime - i * 10000 * 1000).ToString, Int(Rnd() * 100))
                 End If
             Next
-            fastJSON.JSON.Instance.Parameters.UseExtensions = False
-            Return fastJSON.JSON.Instance.ToJSON(ch)
+            fastJSON.JSON.Parameters.UseExtensions = False
+            Return fastJSON.JSON.ToJSON(ch)
 
         End Function
 

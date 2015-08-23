@@ -560,9 +560,9 @@ Namespace HAServices
                                                         End If
                                                     End If
                                                 Case Is = "ADD"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessAddMsg(myParams(1), CType(fastJSON.JSON.Instance.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
+                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessAddMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
                                                 Case Is = "UPD"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessUpdMsg(myParams(1), CType(fastJSON.JSON.Instance.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
+                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessUpdMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
                                                 Case Is = "DEL"
                                                     HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessDelMsg(myParams(1), myMessage.Data))
                                             End Select
@@ -612,8 +612,8 @@ Namespace HAServices
         End Sub
 
         Private Function SendChannelNames(user As String, clientMessage As Structures.HAMessageStruc) As Boolean
-            fastJSON.JSON.Instance.Parameters.UseExtensions = False
-            Dim JSONChannels As String = fastJSON.JSON.Instance.ToJSON(Plugins)
+            fastJSON.JSON.Parameters.UseExtensions = False
+            Dim JSONChannels As String = fastJSON.JSON.ToJSON(Plugins)
             HomeNet.SendClient(user, HAConst.MessFunc.RESPONSE, clientMessage, JSONChannels)
         End Function
 
@@ -627,9 +627,9 @@ Namespace HAServices
                 Case Is = "WIDGETS"
                     SearchExts = {"*.svg", "*.html"}
                 Case Is = "SCRIPTS"
-                    SearchExts = {"*.vb", "*.csharp"}
+                    SearchExts = {"*.vb", "*.cs", "*.scr"}
                 Case Is = "PLUGINS"
-                    SearchExts = {"*.vb", "*.csharp"}
+                    SearchExts = {"*.vb", "*.cs"}
             End Select
             If di.Exists Then
                 For Each ext As String In SearchExts
@@ -650,7 +650,7 @@ Namespace HAServices
 
             Dim SubChs() As String = clientMessage.Data.Split(","c)             ' Extract channel subscription requests delimited by commas
             Dim ClassInst() As String
-            Dim FoundKeys As Dictionary(Of Structures.StateStoreKey, String)
+            Dim FoundKeys As IDictionary(Of Structures.StateStoreKey, String)
             Dim channelList As New Dictionary(Of String, String)                ' response format in list of (scope:data)
 
             Dim ChState As Structures.HAMessageStruc
@@ -953,7 +953,7 @@ Namespace HAServices
             Dim ResultStr As String = "OK"
             If PluginsStarted Then
                 Try
-                    Dim HAMessage As Structures.HAMessageStruc = fastJSON.JSON.Instance.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr)
+                    Dim HAMessage As Structures.HAMessageStruc = fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr)
                     Dim PlugMsg As Structures.HAMessageStruc = HS.CreateMessage(HAMessage.ClassName, HAMessage.Func, HAMessage.Level, HAMessage.Instance, HAMessage.Scope, HAMessage.Data, HAMessage.Category, HAMessage.Network)      ' Pass onto Msgqueue for processing
                     SaveLastMsg(PlugMsg)     ' Save in plugin array for checking when sending back to plugin to avoid message echo
                     'SubmitMessage(JSON.Instance.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr))                ' Place the event on the message bus for processing
@@ -961,7 +961,7 @@ Namespace HAServices
                     ResultStr = ex.ToString
                 End Try
             Else
-                iniMsgs.Add(RecvJsonStr)
+                IniMsgs.Add(RecvJsonStr)
             End If
             Return ResultStr
         End Function
@@ -1131,7 +1131,7 @@ Namespace HAServices
                 If Plugins.ContainsKey(myMessage.Category + "/" + myMessage.ClassName) Then
                     If Plugins(myMessage.Category + "/" + myMessage.ClassName).lastMsg.GUID = myMessage.GUID Then Return "Rejected echo message"
                 End If
-                Dim MessageStr As String = fastJSON.JSON.Instance.ToJSON(myMessage)
+                Dim MessageStr As String = fastJSON.JSON.ToJSON(myMessage)
                 If Plugins.TryGetValue(myMessage.Category.ToUpper + "/" + myMessage.ClassName.ToUpper, checkPlug) Then      ' Is message for a plugin? Not all messages are for plugins
                     If checkPlug.Type = "DOTNET" Then
                         ResultStr = Plugins(myMessage.Category.ToUpper + "/" + myMessage.ClassName).AssRef.HostEvent(MessageStr) ' Send the message back to the DotNet plugin
