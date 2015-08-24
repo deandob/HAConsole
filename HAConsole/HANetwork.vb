@@ -384,10 +384,14 @@ Namespace HANetwork
         ' THREAD: Called when a client disconnects a session
         Private Sub WSDisconnect(DiscSession As WebSocketSession, e As SuperSocket.SocketBase.CloseReason) Handles WSServer.SessionClosed
             Dim ClientData As New ClientStruc
-            Dim ClientName As String = DiscSession.Cookies("clientname")                ' Find client name from the session cookie
-            If Not IsNothing(ClientName) Then
-                HAClients.TryRemove(ClientName, ClientData) ' Remove from client list
-                WriteConsole(True, "Client '" + ClientName + "' session disconnected from IP address: " + DiscSession.RemoteEndPoint.Address.ToString)
+            If Not IsNothing(DiscSession.Cookies("clientname")) Then
+                Dim ClientName As String = DiscSession.Cookies("clientname")                ' Find client name from the session cookie
+                If Not IsNothing(ClientName) Then
+                    HAClients.TryRemove(ClientName, ClientData) ' Remove from client list
+                    WriteConsole(True, "Client '" + ClientName + "' session disconnected from IP address: " + DiscSession.RemoteEndPoint.Address.ToString)
+                End If
+            Else
+                WriteConsole(True, "Disconnect received without an initiated client from IP address: " + DiscSession.RemoteEndPoint.Address.ToString)
             End If
         End Sub
 

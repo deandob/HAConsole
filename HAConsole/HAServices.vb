@@ -612,8 +612,16 @@ Namespace HAServices
         End Sub
 
         Private Function SendChannelNames(user As String, clientMessage As Structures.HAMessageStruc) As Boolean
-            fastJSON.JSON.Parameters.UseExtensions = False
-            Dim JSONChannels As String = fastJSON.JSON.ToJSON(Plugins)
+            Dim PlugChs As New Dictionary(Of String, Structures.PlugStruc)
+            Dim tempPlug As New Structures.PlugStruc
+            For Each Plugin As KeyValuePair(Of String, Structures.PlugStruc) In Plugins
+                tempPlug.Category = Plugin.Value.Category
+                tempPlug.ClassName = Plugin.Value.ClassName
+                tempPlug.Channels = Plugin.Value.Channels
+                PlugChs.Add(Plugin.Key, tempPlug)
+            Next
+            'Dim JSONChannels As String = fastJSON.JSON.ToJSON(Plugins)
+            Dim JSONChannels As String = fastJSON.JSON.ToJSON(PlugChs)          ' Temporary object as JSON serialisation can't deal with references inside object
             HomeNet.SendClient(user, HAConst.MessFunc.RESPONSE, clientMessage, JSONChannels)
         End Function
 
