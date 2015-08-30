@@ -596,7 +596,7 @@ Namespace HAServices
                                 Case Is = "HOUR"
                                     ProcessHourChange()
                                 Case Is = "MINUTE"
-                                    ProcessMinuteChange()
+                                    ProcessMinuteChange(myMessage)
                                 Case Is = "SECOND"
                                     ProcessSecondChange()
                                 Case Is = "TICK"
@@ -612,16 +612,16 @@ Namespace HAServices
         End Sub
 
         Private Function SendChannelNames(user As String, clientMessage As Structures.HAMessageStruc) As Boolean
-            Dim PlugChs As New Dictionary(Of String, Structures.PlugStruc)
-            Dim tempPlug As New Structures.PlugStruc
-            For Each Plugin As KeyValuePair(Of String, Structures.PlugStruc) In Plugins
-                tempPlug.Category = Plugin.Value.Category
-                tempPlug.ClassName = Plugin.Value.ClassName
-                tempPlug.Channels = Plugin.Value.Channels
-                PlugChs.Add(Plugin.Key, tempPlug)
-            Next
-            'Dim JSONChannels As String = fastJSON.JSON.ToJSON(Plugins)
-            Dim JSONChannels As String = fastJSON.JSON.ToJSON(PlugChs)          ' Temporary object as JSON serialisation can't deal with references inside object
+            'Dim PlugChs As New Dictionary(Of String, Structures.PlugStruc)
+            'Dim tempPlug As New Structures.PlugStruc
+            'For Each Plugin As KeyValuePair(Of String, Structures.PlugStruc) In Plugins
+            ' tempPlug.Category = Plugin.Value.Category
+            ' tempPlug.ClassName = Plugin.Value.ClassName
+            ' tempPlug.Channels = Plugin.Value.Channels
+            ' PlugChs.Add(Plugin.Key, tempPlug)
+            ' Next
+            Dim JSONChannels As String = fastJSON.JSON.ToJSON(Plugins)
+            'Dim JSONChannels As String = fastJSON.JSON.ToJSON(PlugChs)          ' Temporary object as JSON serialisation can't deal with references inside object
             HomeNet.SendClient(user, HAConst.MessFunc.RESPONSE, clientMessage, JSONChannels)
         End Function
 
@@ -824,9 +824,9 @@ Namespace HAServices
         End Sub
 
         ' Process system actions that happen on the change of a minute
-        Private Sub ProcessMinuteChange()
+        Private Sub ProcessMinuteChange(myMessage As Structures.HAMessageStruc)
             SetTimeOfDay()                                                              ' Set the flags to indicate what time of day it is (varies based on sunrise, sunset times)
-            Automation.AutomationEvents(AllMessages)                                    ' Each minute check if any of the timer triggers are activated (pass a dummy message so that no event triggers are fired)
+            Automation.AutomationEvents(myMessage)                                    ' Each minute check if any of the timer triggers are activated
         End Sub
 
         ' Process system actions that happen on the change of a second
@@ -1197,14 +1197,14 @@ Namespace HAServices
         Public Function DeleteEvent(EventName As String) As String
             Return Automation.DeleteEvent(EventName)
         End Function
-        Public Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer, _
-                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean, _
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As String, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+        Public Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
+                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
             Return Automation.AddNewTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, TrigChgMessage, TrigStateMessage)
         End Function
-        Public Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer, _
-                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean, _
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As String, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+        Public Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
+                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
             Return Automation.UpdateTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, TrigChgMessage, TrigStateMessage)
         End Function
         Public Function DeleteTrigger(TriggerName As String) As String

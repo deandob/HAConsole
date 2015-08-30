@@ -384,7 +384,7 @@ Namespace HANetwork
         ' THREAD: Called when a client disconnects a session
         Private Sub WSDisconnect(DiscSession As WebSocketSession, e As SuperSocket.SocketBase.CloseReason) Handles WSServer.SessionClosed
             Dim ClientData As New ClientStruc
-            If Not IsNothing(DiscSession.Cookies("clientname")) Then
+            If DiscSession.Cookies IsNot Nothing Then
                 Dim ClientName As String = DiscSession.Cookies("clientname")                ' Find client name from the session cookie
                 If Not IsNothing(ClientName) Then
                     HAClients.TryRemove(ClientName, ClientData) ' Remove from client list
