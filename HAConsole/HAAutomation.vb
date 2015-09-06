@@ -668,8 +668,8 @@ Public Class Automation
                                     Dim RowLocn As Integer = EventsDT.Rows.IndexOf(myEvent(0))
                                     'SyncLock AccessDB
                                     If CBool(myEvent(0).Item("EventOneOff")) Then EventsDT(RowLocn).Item("EventActive") = False ' If the event is a single shot (one off), then disable the event so it is only run once
-                                        EventsDT(RowLocn).Item("EventLastFired") = Date.Now.Ticks
-                                        EventsDT(RowLocn).Item("EventNumRecur") = CInt(EventsDT(RowLocn).Item("EventNumRecur")) + 1
+                                    EventsDT(RowLocn).Item("EventLastFired") = Date.UtcNow.Ticks
+                                    EventsDT(RowLocn).Item("EventNumRecur") = CInt(EventsDT(RowLocn).Item("EventNumRecur")) + 1
                                     'End SyncLock
                                     UpdateAutoDB("UPD", "EVENTS", EventsDT(RowLocn))
 
@@ -702,6 +702,7 @@ Public Class Automation
 
             ' Process Scripts
             If CStr(ActionRow("ActionScript")) <> "" Then
+                WriteConsole(False, "Running script: " + CStr(ActionRow("ActionScript")) + "(" + CStr(ActionRow("ActionScriptParam")) + ")")
                 Dim ScriptResult As String = HS.RunScript(CStr(ActionRow("ActionScript")), CStr(ActionRow("ActionScriptParam"))) ' Run the script specified in the trigger
             End If
 
@@ -735,7 +736,7 @@ Public Class Automation
         Dim RowLocn As Integer = TriggersDT.Rows.IndexOf(Trigger)
         If RowLocn = -1 Then Return False ' Can't locate the row to update
         'SyncLock AccessDB
-        TriggersDT(RowLocn).Item("TrigLastFired") = Date.Now.Ticks
+        TriggersDT(RowLocn).Item("TrigLastFired") = Date.UtcNow.Ticks
         'End SyncLock
         'TODO: Put this on a separate thread
         UpdateAutoDB("UPD", "TRIGGERS", TriggersDT(RowLocn), RowLocn)
@@ -745,7 +746,7 @@ Public Class Automation
 
     ' Run a script associated with the trigger, returning the result of the script
     Private Shared Function MatchScript(row As DataRow) As Boolean
-        If CStr(row("TrigScript")) <> "" Or CStr(row("TrigScriptData")) <> "" Then                      ' Don't process if there is no script entry or data
+        If CStr(row("TrigScript")) <> "" Then                      ' Don't process if there is no script entry
             Dim ScriptResult As String = ""
             ScriptResult = HS.RunScript(CStr(row("TrigScript")), CStr(row("TrigScriptParam")))  ' Run the script specified in the trigger with a parameter
             Return TestData(CInt(row("TrigScriptCond")), CStr(row("TrigScriptData")), ScriptResult)     ' Return true or false depending if the script results = the data field in the trigger for the script
@@ -945,8 +946,8 @@ Public Class Automation
 
     ' All dates coming to the server must be in .NET binary date format UTC, so force UTC kind
     Public Shared Function UTCKind(UTC As String) As DateTime
-        Dim yy = Date.FromBinary(CLng(UTC))
-        Dim xx = DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
+        'Dim yy = Date.FromBinary(CLng(UTC))
+        'Dim xx = DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
         Return DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
     End Function
 
@@ -970,10 +971,6 @@ Public Class Automation
                 TrigChgMessage.Instance = CStr(DataArray.Item("trigChgInstance"))
                 TrigChgMessage.Scope = CStr(DataArray.Item("trigChgScope"))
                 TrigChgMessage.Data = CStr(DataArray.Item("trigChgData"))
-                'Result = AddNewTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))), _
-                'CInt(CStr(DataArray.Item("trigStateCond"))), Date.FromBinary(CLng(CStr(DataArray.Item("trigFromDate")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigFromTime")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigToDate")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigToTime")))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")), _
-                'CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")), _
-                'CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), CStr(DataArray.Item("trigTimeofDay")), TrigChgMessage, TrigStateMessage)
                 Result = AddNewTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))),
                                   CInt(CStr(DataArray.Item("trigStateCond"))), UTCKind(CStr(DataArray.Item("trigFromDate"))), UTCKind(CStr(DataArray.Item("trigFromTime"))), UTCKind(CStr(DataArray.Item("trigToDate"))), UTCKind(CStr(DataArray.Item("trigToTime"))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")),
                                   CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")),
