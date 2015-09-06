@@ -162,7 +162,13 @@ Namespace HAServices
         End Sub
 
         Private Function LoadNodePlugins() As Boolean
-            'Dim NodeInfo As ProcessStartInfo = New ProcessStartInfo("node.exe")
+            Dim oldNodeProc As New List(Of Process)
+            For Each process As Process In Process.GetProcesses()
+                If process.ProcessName.Contains("node") Then
+                    WriteConsole(True, "Node.JS already running, killing...")
+                    process.Kill()
+                End If
+            Next
             NodeProc.StartInfo.FileName = "node.exe"
             NodeProc.StartInfo.Arguments = "plugmgr.js"
             NodeProc.StartInfo.WorkingDirectory = "..\..\..\..\pluginMgr\pluginMgr"

@@ -652,10 +652,8 @@ Public Class Automation
                                     EventRun.Add(EventName)                                                                             ' Save this event name to the run list so that the event isn't run several times
 
                                     ' Check to see if we are within the active times for the event, if not, skip to the next trigger
-                                    'If Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) > Date.Now Then Continue For
-                                    'If Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) < Date.Now Then Continue For
-                                    If CLng(myEvent(0).Item("EventStart")) <> 0 Then If Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) > Date.Now Then Continue For
-                                    If CLng(myEvent(0).Item("EventStop")) <> 0 Then If Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) < Date.Now Then Continue For
+                                    If Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) > Date.Now Then Continue For
+                                    If CLng(myEvent(0).Item("EventStop")) <> 0 Then If Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) < Date.Now Then Continue For       ' null date is 0 so check it first
 
                                     Dim RunActions As String = "Actions: "
                                     Dim myEventActions() As DataRow = GetEventActionsInfo(EventName)                                    ' Get the actions associated with the event
@@ -760,17 +758,6 @@ Public Class Automation
     Private Shared Function MatchTime(row As DataRow) As Boolean
         MatchTime = False
 
-        ' If start or end date is set, then check the from date/time
-        '        If Date.FromBinary(CLng(row.Item("TrigDateFrom"))) <> HAConst.NULLDATE Then
-        '        If Date.FromBinary(CLng(row.Item("TrigDateFrom"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes) > Date.Now Then Exit Function ' Current time is before the 'from' Date/Time, so exit
-        '        Else    ' Start date not set, so check if the stop time is set and it is after the stop time, exit sub
-        '        If Date.FromBinary(CLng(row.Item("TrigTimeFrom"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes > Date.Now.TimeOfDay.TotalMinutes Then Exit Function
-        '        End If
-        '        If Date.FromBinary(CLng(row.Item("TrigDateTo"))) <> HAConst.NULLDATE Then
-        '        If Date.FromBinary(CLng(row.Item("TrigDateTo"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes) < Date.Now Then Exit Function ' Current time is after the 'to' Date/Time
-        '        Else    ' Stop date not set, so check if the stop time is set and it is after the stop time, exit sub
-        '        If Date.FromBinary(CLng(row.Item("TrigTimeTo"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes < Date.Now.TimeOfDay.TotalMinutes Then Exit Function
-        '        End If
         If CLng(row.Item("TrigDateFrom")) <> 0 Then
             If Date.FromBinary(CLng(row.Item("TrigDateFrom"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes) > Date.Now Then Exit Function ' Current time is before the 'from' Date/Time, so exit
         Else    ' Start date not set, so check if the stop time is set and it is after the stop time, exit sub
@@ -822,7 +809,7 @@ Public Class Automation
             Dim TrigDate = Date.FromBinary(TrigTimeOfDay).ToLocalTime()
             If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Hour <> Date.Now.Hour Then Exit Function
             If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute <> Date.Now.Minute Then Exit Function
-            If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Don't trigger multiple times
+            If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Only trigger once per day
         End If
 
         MatchTime = True                                        ' Made it here, so the time trigger is valid
@@ -958,8 +945,8 @@ Public Class Automation
 
     ' All dates coming to the server must be in .NET binary date format UTC, so force UTC kind
     Public Shared Function UTCKind(UTC As String) As DateTime
-        Dim xx = DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Local).ToLocalTime()
-
+        Dim yy = Date.FromBinary(CLng(UTC))
+        Dim xx = DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
         Return DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
     End Function
 
@@ -1136,7 +1123,6 @@ Public Class Automation
                 NewRow.Item("EventOneOff") = OneShot
                 NewRow.Item("EventStart") = StartDate.Ticks
                 NewRow.Item("EventStop") = StopDate.Ticks
-                'NewRow.Item("EventLastFired") = CDate(HAConst.NULLDATE).Ticks
                 NewRow.Item("EventLastFired") = 0
                 NewRow.Item("EventNumRecur") = 0
                 UpdateAutoDB("ADD", "EVENTS", NewRow)
@@ -1248,7 +1234,6 @@ Public Class Automation
                 NewRow.Item("TrigActive") = Active
                 NewRow.Item("TrigInactive") = Inactive
                 NewRow.Item("TrigTimeofDay") = TimeofDay.Ticks
-                'NewRow.Item("TrigLastFired") = HAConst.NULLDATE.Ticks
                 NewRow.Item("TrigLastFired") = 0
                 UpdateAutoDB("ADD", "TRIGGERS", NewRow)
                 HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "TRIGGERS", "ADDED", TriggerName, "SYSTEM")
@@ -1489,7 +1474,6 @@ Public Class Automation
                     TriggersDT(RowLocn).Item("TrigActive") = Active
                     TriggersDT(RowLocn).Item("TrigInactive") = Inactive
                     TriggersDT(RowLocn).Item("TrigTimeofDay") = TimeofDay.Ticks
-                    'TriggersDT(RowLocn).Item("TrigLastFired") = HAConst.NULLDATE.Ticks                  ' Trigger adjusted, so clear last fired field.
                     TriggersDT(RowLocn).Item("TrigLastFired") = 0                  ' Trigger adjusted, so clear last fired field.
                 End SyncLock
                 UpdateAutoDB("UPD", "TRIGGERS", TriggersDT(RowLocn))

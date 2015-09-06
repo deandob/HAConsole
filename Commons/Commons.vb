@@ -97,8 +97,7 @@ End Class
 ' Global constants for all classes to share
 Public Class HAConst
 
-    'Public Shared ReadOnly NULLDATE As DateTime = New DateTime(2000, 1, 1).ToUniversalTime()      ' This date is used to represent null or inactive date (and based on installed culture)
-    'Public Shared ReadOnly NULLDATE As DateTime = New DateTime(630822456000000000)                  ' 1-1-2000 constant
+    'Public Shared ReadOnly NULLDATE As DateTime = New DateTime(0)                  
     Public Shared ReadOnly unixEpoc As Long = 621355968000000000
     Public Shared ReadOnly pcTicks As Long = 10000
 
