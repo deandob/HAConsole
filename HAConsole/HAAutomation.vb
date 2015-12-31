@@ -33,6 +33,8 @@ Public Class Automation
 
     Private Shared AutoFile As String                                   ' Location for the automation DB file
 
+    ' NOTE: All time/dates are in UTC
+
 #Region "Initialization"
     ' Initialize the automation database including creating the tables if the db file doesn't exist
     Public Shared Sub InitAutoDB()
@@ -677,7 +679,6 @@ Public Class Automation
                             End If
                         Else
                             WriteConsole(False, "WARNING - Inconsistency in automation DB, cannot find event action for trigger: " + CStr(TrigRow("TrigName")))
-                            Dim xx() As DataRow = GetEventsInfo(CStr(EventTriggerRow("EventName")))
                         End If
                     Next
                 End If
@@ -759,15 +760,24 @@ Public Class Automation
     Private Shared Function MatchTime(row As DataRow) As Boolean
         MatchTime = False
 
+        Dim aa = Date.UtcNow
+        Dim xx = Date.FromBinary(CLng(row.Item("TrigDateFrom")))
+        Dim yy = Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes
+        Dim zz = Date.FromBinary(CLng(row.Item("TrigDateFrom"))).AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes)
+        Dim xxx = Date.FromBinary(CLng(row.Item("TrigDateTo")))
+        Dim yyy = Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes
+        Dim zzz = Date.FromBinary(CLng(row.Item("TrigDateTo"))).AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes)
+
+        ' TODO: Not reading from / to dates correctly as when converting to UTC we lose a day due to time difference (as time isn't added). So when just dealing with dates, don't use UTC. Need to adjust the below
         If CLng(row.Item("TrigDateFrom")) <> 0 Then
-            If Date.FromBinary(CLng(row.Item("TrigDateFrom"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes) > Date.Now Then Exit Function ' Current time is before the 'from' Date/Time, so exit
+            If Date.FromBinary(CLng(row.Item("TrigDateFrom"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes) > Date.UtcNow Then Exit Function ' Current time is before the 'from' Date/Time, so exit
         Else    ' Start date not set, so check if the stop time is set and it is after the stop time, exit sub
-            If CLng(row.Item("TrigTimeFrom")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes > Date.Now.TimeOfDay.TotalMinutes Then Exit Function
+            If CLng(row.Item("TrigTimeFrom")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes > Date.UtcNow.TimeOfDay.TotalMinutes Then Exit Function
         End If
         If CLng(row.Item("TrigDateTo")) <> 0 Then
-            If Date.FromBinary(CLng(row.Item("TrigDateTo"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes) < Date.Now Then Exit Function ' Current time is after the 'to' Date/Time
+            If Date.FromBinary(CLng(row.Item("TrigDateTo"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes) < Date.UtcNow Then Exit Function ' Current time is after the 'to' Date/Time
         Else    ' Stop date not set, so check if the stop time is set and it is after the stop time, exit sub
-            If CLng(row.Item("TrigTimeTo")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes < Date.Now.TimeOfDay.TotalMinutes Then Exit Function
+            If CLng(row.Item("TrigTimeTo")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes < Date.UtcNow.TimeOfDay.TotalMinutes Then Exit Function
         End If
 
         ' If a weekday is set and today is not the day, exit

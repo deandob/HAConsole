@@ -169,8 +169,8 @@ Namespace HAServices
                     process.Kill()
                 End If
             Next
-            NodeProc.StartInfo.FileName = "node.exe"
-            NodeProc.StartInfo.Arguments = "plugmgr.js"
+            NodeProc.StartInfo.FileName = "nodebat.bat"
+            NodeProc.StartInfo.Arguments = "plugmgr.js " + DebugMode.ToString()
             NodeProc.StartInfo.WorkingDirectory = "..\..\..\..\pluginMgr\pluginMgr"
             NodeProc.EnableRaisingEvents = True
             WriteConsole(True, "Starting Node.JS pluginMgr...")
@@ -183,7 +183,7 @@ Namespace HAServices
             WriteConsole(True, "Node.JS console exited.")
             If NodeProc.ExitCode > 0 Then                                    ' Don't capture normal termination
                 WriteConsole(True, "WARNING: Node process aborted (error code " + NodeProc.ExitCode.ToString() + "). Restarting")
-                System.Threading.Thread.Sleep(30000)
+                System.Threading.Thread.Sleep(10000)
                 If NodeProc.ExitCode = 99 Then
                     System.Diagnostics.Process.Start("shutdown.exe", "-r -f -t 0")  ' reboot
                 Else
@@ -1156,15 +1156,6 @@ Namespace HAServices
                         WriteConsole(False, "Msg sent to nodejs plugin: " + myMessage.Instance + " Data: " + myMessage.Data)
                     End If
                 End If
-
-                'Next
-                'For Each Plugin In Plugins
-                '    If Plugin.Category.ToUpper = myMessage.Category.ToUpper And Plugin.ClassName.ToUpper = myMessage.ClassName.ToUpper Then
-                '        If Plugin.Type = "DOTNET" Then ResultStr = Plugin.AssRef.HostEvent(MessageStr) ' Send the message back to the DotNet plugin
-                '        If Plugin.Type = "NODEJS" Then ResultStr = HomeNet.SendPlugin(MessageStr) ' Send the message back to the NODEJS plugin
-                '        WriteConsole(False, "Msg sent to plugin: " + myMessage.Instance + " Data: " + myMessage.Data)
-                '    End If
-                'Next
             Catch ex As Exception
                 ResultStr = ex.ToString         ' XXXXXXXXXXXXXXXXXXXXXXXXXXX
             End Try
