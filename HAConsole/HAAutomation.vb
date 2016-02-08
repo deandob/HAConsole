@@ -446,6 +446,7 @@ Public Class Automation
         WriteConsole(True, "Loading history data from database...")
         Dim FunctionsRecs() As DataRow = GetFunctionsInfo("")
         For Each rec As DataRow In FunctionsRecs
+            '''            Exit For       '----------------------------------------------------------------------------------------------------------------
             Dim Duration = ""
             If CStr(rec("Type")) <> "" Then              ' Process functions with a valid history field
                 Dim StartDate As New DateTime
@@ -473,7 +474,7 @@ Public Class Automation
                 Dim scopeStr = ""
                 If CStr(rec("Scope")) <> "" Then scopeStr = " AND SCOPE LIKE '%" + CStr(rec("Scope")) + "%'" ' Allow partial matching
                 'Dim CondStr = "CATEGORY=" + CStr(rec("Category")) + " AND CLASS='" + CStr(rec("Class")) + "' AND INSTANCE='" + CStr(rec("Instance")) + "'" + scopeStr + _
-                Dim CondStr = "CLASS='" + CStr(rec("Class")) + "' AND INSTANCE='" + CStr(rec("Instance")) + "'" + scopeStr + _
+                Dim CondStr = "CLASS='" + CStr(rec("Class")) + "' AND INSTANCE='" + CStr(rec("Instance")) + "'" + scopeStr +
                               " AND TIME BETWEEN " + StartDate.Ticks().ToString() + " AND " + Date.UtcNow.Ticks().ToString()
                 Dim HistMsg As Structures.HAMessageStruc
                 HistMsg.Network = GlobalVars.myNetNum

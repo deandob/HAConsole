@@ -167,9 +167,13 @@ Namespace HANetwork
                                             Select Case HAMessage.Scope.ToUpper
                                                 Case Is = "INIT"
                                                     ' Map JSON data back into the object structure for Plugins
-                                                    Dim plugins = DirectCast(fastJSON.JSON.Parse(HAMessage.Data), List(Of Object))
+                                                    ''Dim xx = fastJSON.JSON.Parse(HAMessage.Data)
+                                                    Dim plugins = fastJSON.JSON.ToObject(Of List(Of Object))(HAMessage.Data)
+                                                    '''Dim plugins = DirectCast(xx, List(Of KeyValuePair(Of String, Object)))
                                                     For Each plugin As IDictionary(Of String, Object) In plugins
+                                                        '''For Each plugin As KeyValuePair(Of String, Object) In plugins
                                                         Dim JSPlug As New Structures.PlugStruc
+                                                        '''Dim plugVal As IDictionary(Of String, Object) = DirectCast(plugin.Value, IDictionary(Of String, Object))
                                                         JSPlug.Category = DirectCast(plugin("category"), String)
                                                         JSPlug.Desc = DirectCast(plugin("desc"), String)
                                                         JSPlug.ClassName = DirectCast(plugin("className"), String)
