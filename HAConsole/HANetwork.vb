@@ -239,7 +239,7 @@ Namespace HANetwork
                             End Select
                     End Select
                 Else
-                    WriteConsole(False, "Plugin Msg Received: " + HAMessage.Scope + " Data: " + HAMessage.Data)
+                    WriteConsole(False, "Plugin Msg Received from: " + HAMessage.ClassName + "(" + HAMessage.Instance + ") Data: " + HAMessage.Data)
                     ' TODO: Consolidate this with the equivalent in the dotnet plugin message with createmessage and submitmessage (do in JSON format to avoid deserializing & re-searalization performance hits)
                     Dim PlugMsg As Structures.HAMessageStruc = HS.CreateMessage(HAMessage.ClassName, HAMessage.Func, HAMessage.Level, HAMessage.Instance, HAMessage.Scope, HAMessage.Data, HAMessage.Category, HAMessage.Network)      ' Pass onto Msgqueue for processing
                     HS.SaveLastMsg(PlugMsg)     ' Save in plugin array for checking when sending back to plugin to avoid message echo
