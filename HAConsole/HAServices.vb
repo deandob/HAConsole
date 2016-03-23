@@ -427,12 +427,12 @@ Namespace HAServices
         End Function
 
         ' Extract records from the logs database
-        Public Function GetLogs(cols As String, filter As String, CatNum As Integer) As DataRow()
+        Public Function GetLogs(cols As String, filter As String, CatNum As Integer, OrderLimit As String) As DataRow()
             If cols = "" Then cols = "*"
             SyncLock DBLock
                 SQLCmd = CType(LogConn.Item(CatNum), SQLite.SQLiteConnection).CreateCommand         ' Select appropriate catalog log file
                 PauseDB = True              ' Stop processing logs, keep them in the queue
-                SQLCmd.CommandText = "SELECT " + cols.ToUpper + " FROM MessLog WHERE " + filter + " ORDER BY TIME ASC"  ' sort by time ASC / DESC
+                SQLCmd.CommandText = "SELECT " + cols.ToUpper + " FROM MessLog WHERE " + filter + " ORDER BY " + OrderLimit  ' sort by time ASC / DESC
                 Dim dt As DataTable = New DataTable()
                 Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
                 da.SelectCommand = SQLCmd
@@ -661,35 +661,40 @@ Namespace HAServices
 
         ' Called by client for bulk subscribe to channels & return all relevant initial cached state information
         Private Function IniSubscribe(user As String, clientMessage As Structures.HAMessageStruc) As Boolean
+            Try
+                Dim SubChs() As String = clientMessage.Data.Split(","c)             ' Extract channel subscription requests delimited by commas
+                Dim ClassInst() As String
+                Dim FoundKeys As IDictionary(Of Structures.StateStoreKey, String)
+                Dim channelList As New Dictionary(Of String, String)                ' response format in list of (scope:data)
 
-            Dim SubChs() As String = clientMessage.Data.Split(","c)             ' Extract channel subscription requests delimited by commas
-            Dim ClassInst() As String
-            Dim FoundKeys As IDictionary(Of Structures.StateStoreKey, String)
-            Dim channelList As New Dictionary(Of String, String)                ' response format in list of (scope:data)
+                Dim ChState As Structures.HAMessageStruc
+                ChState.Network = GetNetNum(myNetName)
+                ChState.Category = clientMessage.Category
+                ChState.ClassName = clientMessage.ClassName
+                ChState.Instance = clientMessage.Instance
+                ChState.Scope = ""    ' All
 
-            Dim ChState As Structures.HAMessageStruc
-            ChState.Network = GetNetNum(myNetName)
-            ChState.Category = clientMessage.Category
-            ChState.ClassName = clientMessage.ClassName
-            ChState.Instance = clientMessage.Instance
-            ChState.Scope = ""    ' All
+                For Each SubCh In SubChs                                            ' Search statestore for all relevant information for the instance
+                    ClassInst = SubCh.Split("/"c)                                   ' category\class\instance = category\plugin\channel
+                    If SubCh <> "" Then
+                        If Not HomeNet.HAClients(user).Subscribed.Contains(SubCh) Then HomeNet.HAClients(user).Subscribed.Add(SubCh) ' Only 1 unique channel subscription per client
+                        ChState.Category = ClassInst(0)                             ' Get the latest state info for the INI response
+                        ChState.ClassName = ClassInst(1)
+                        ChState.Instance = ClassInst(2)
+                        FoundKeys = SearchStoreStates(ChState)                      ' Find all the cached state information for the plugin instance
+                        For Each kvp In FoundKeys
+                            If kvp.Key.Scope.Substring(0, 1) <> "_" Then channelList(SubCh) = kvp.Key.Scope + ":" + kvp.Value ' ignore system messages starting with _
+                        Next
+                    End If
+                Next
 
-            For Each SubCh In SubChs                                            ' Search statestore for all relevant information for the instance
-                ClassInst = SubCh.Split("/"c)                                   ' category\class\instance = category\plugin\channel
-                If SubCh <> "" Then
-                    If Not HomeNet.HAClients(user).Subscribed.Contains(SubCh) Then HomeNet.HAClients(user).Subscribed.Add(SubCh) ' Only 1 unique channel subscription per client
-                    ChState.Category = ClassInst(0)                             ' Get the latest state info for the INI response
-                    ChState.ClassName = ClassInst(1)
-                    ChState.Instance = ClassInst(2)
-                    FoundKeys = SearchStoreStates(ChState)                      ' Find all the cached state information for the plugin instance
-                    For Each kvp In FoundKeys
-                        If kvp.Key.Scope.Substring(0, 1) <> "_" Then channelList(SubCh) = kvp.Key.Scope + ":" + kvp.Value ' ignore system messages starting with _
-                    Next
-                End If
-            Next
+                Return HomeNet.SendClient(clientMessage.Instance, HAConst.MessFunc.RESPONSE, clientMessage, channelList)
 
-            Return HomeNet.SendClient(clientMessage.Instance, HAConst.MessFunc.RESPONSE, clientMessage, channelList)
 
+            Catch ex As Exception
+                Dim t = 1
+
+            End Try
         End Function
 
         Private Function SendtoSubscribers(myMessage As Structures.HAMessageStruc) As Boolean
@@ -745,7 +750,7 @@ Namespace HAServices
             Dim FinishTime As Long = HAUtils.FromJSTIme(finish)
             'Dim CondStr As String = "CATEGORY=" + CStr(GetCatNum(ChSplit(0))) + " AND CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
             Dim CondStr As String = "CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
-            Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1)
+            Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1, "TIME ASC")
             Dim GetColl As New List(Of Object)
             If IsNothing(getRows) Then Return Nothing
 

@@ -35,6 +35,8 @@ Public Class Automation
 
     ' NOTE: All time/dates are in UTC
 
+    'TODO: Dynamic update to the trigger and transform engines when changes to the DB are made. Currently have to reset to lock in a change.
+
 #Region "Initialization"
     ' Initialize the automation database including creating the tables if the db file doesn't exist
     Public Shared Sub InitAutoDB()
@@ -316,7 +318,7 @@ Public Class Automation
 
                                     Case Is = "COUNT"
 
-                                    Case Is = "MAX", "MAXTIME"
+                                    Case Is = "MAX", "MAXTIMENEWEST", "MAXTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
@@ -330,14 +332,14 @@ Public Class Automation
                                                     FuncMessage.Scope = "_MAXTIME" + Duration
                                                     FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
                                                     HS.SetStoreState(FuncMessage)
-                                                    If CStr(FuncRow("History")).ToUpper() = "MAXTIME" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
+                                                    If HistFunc <> "MAX" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
                                                     Exit For
                                                 End If
                                             End If
-                                            If Key.Key.Scope = "_MAXTIME" + Duration And HistFunc = "MAXTIME" Then myVal = testSng : Exit For
+                                            If Key.Key.Scope = "_MAXTIME" + Duration And HistFunc <> "MAX" Then myVal = testSng : Exit For
                                         Next
 
-                                    Case Is = "MIN", "MINTIME"
+                                    Case Is = "MIN", "MINTIMENEWEST", "MINTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
@@ -351,11 +353,11 @@ Public Class Automation
                                                     FuncMessage.Scope = "_MINTIME" + Duration
                                                     FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
                                                     HS.SetStoreState(FuncMessage)
-                                                    If CStr(FuncRow("History")).ToUpper() = "MINTIME" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
+                                                    If HistFunc <> "MIN" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
                                                     Exit For
                                                 End If
                                             End If
-                                            If Key.Key.Scope = "_MINTIME" + Duration And HistFunc = "MINTIME" Then myVal = testSng : Exit For
+                                            If Key.Key.Scope = "_MINTIME" + Duration And HistFunc <> "MIN" Then myVal = testSng : Exit For
                                         Next
                                 End Select
                             Else
@@ -491,7 +493,7 @@ Public Class Automation
                         Dim WeightAvg As Single = 0
 
                         ' Get all matching records in the timerange
-                        Dim LogRecs As DataRow() = HS.GetLogs("TIME,DATA", CondStr, CInt(rec("Category")) - 1)
+                        Dim LogRecs As DataRow() = HS.GetLogs("TIME,DATA", CondStr, CInt(rec("Category")) - 1, "TIME ASC")
 
                         If LogRecs.Count > 0 Then
                             Dim TimeWeight As Long
@@ -524,12 +526,17 @@ Public Class Automation
 
                     Case Is = "COUNT"
 
-                    Case Is = "MAX", "MAXTIME"
+                    Case Is = "MAX", "MAXTIMENEWEST", "MAXTIMEOLDEST"
                         ' Get all matching records in the timerange and return maximum value & time recorded
                         HistMsg.Scope = "_MAX" + Duration
                         If IsNothing(HS.GetStoreState(HistMsg)) Then                    ' Don't hit database again if store max already exists
-                            Dim LogRecs As DataRow() = HS.GetLogs("TIME, MAX(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
-                            If LogRecs.Count > 0 And Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
+                            'Dim LogRecs As DataRow() = HS.GetLogs("TIME, MAX(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
+                            Dim OrderLimit As String = "TIME"
+                            Dim SelectStr As String = "TIME, MAX(CAST(DATA AS REAL)) AS DATA"   ' Get oldest (first) maximum value via MAX function
+                            If CStr(rec("History")).ToUpper() = "MAXTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA, TIME DESC LIMIT 1"     ' Get newest (last) maximum value
+
+                            Dim LogRecs As DataRow() = HS.GetLogs(SelectStr, CondStr, CInt(rec("Category")) - 1, OrderLimit)
+                            If LogRecs.Length > 0 AndAlso Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
                                 HistMsg.Data = CStr(LogRecs(LogRecs.Count - 1)("DATA"))
                                 HS.SetStoreState(HistMsg)                               ' Save the maximum value
                                 HistMsg.Scope = "_MAXTIME" + Duration
@@ -539,11 +546,18 @@ Public Class Automation
                             End If
                         End If
 
-                    Case Is = "MIN", "MINTIME"
+                    Case Is = "MIN", "MINTIMENEWEST", "MINTIMEOLDEST"
                         HistMsg.Scope = "_MIN" + Duration
                         If IsNothing(HS.GetStoreState(HistMsg)) Then                    ' Don't hit database again if store max already exists
-                            Dim LogRecs As DataRow() = HS.GetLogs("TIME, MIN(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
-                            If LogRecs.Count > 0 And Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
+
+                            'Dim OrderLimit As String = "DATA, TIME ASC LIMIT 1"             ' Get oldest (first) max value
+                            Dim OrderLimit As String = "TIME"
+                            Dim SelectStr As String = "TIME, MIN(CAST(DATA AS REAL)) AS DATA"       ' Get oldest (first) min value via MIN function
+                            If CStr(rec("History")).ToUpper() = "MINTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA, TIME ASC LIMIT 1"     ' get newest(last) max val
+
+                            'Dim LogRecs As DataRow() = HS.GetLogs("TIME, MIN(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
+                            Dim LogRecs As DataRow() = HS.GetLogs(SelectStr, CondStr, CInt(rec("Category")) - 1, OrderLimit)
+                            If LogRecs.Count > 0 AndAlso Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
                                 HistMsg.Data = CStr(LogRecs(LogRecs.Count - 1)("DATA"))
                                 HS.SetStoreState(HistMsg)                               ' Save the minimum value
                                 HistMsg.Scope = "_MINTIME" + Duration
@@ -593,25 +607,31 @@ Public Class Automation
 
                                     Case Is = "COUNT"
 
-                                    Case Is = "MAX", "MAXTIME"
+                                    Case Is = "MAX", "MAXTIMENEWEST", "MAXTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, Globalization.NumberStyles.AllowExponent Or Globalization.NumberStyles.AllowDecimalPoint, Globalization.CultureInfo.CurrentCulture, testSng) Then
-                                                If HistFunc = "MAX" And Key.Key.Scope = "_MAX" + Duration Then myVal = testSng ' historical max value (by duration)
-                                                If HistFunc = "MAXTIME" And Key.Key.Scope = "_MAXTIME" + Duration Then myVal = testSng
+                                                If HistFunc = "MAX" And Key.Key.Scope = "_MAX" + Duration Then
+                                                    myVal = testSng ' historical max value (by duration)
+                                                Else
+                                                    If Key.Key.Scope = "_MAXTIME" + Duration Then myVal = testSng
+                                                End If
                                             End If
                                         Next
 
-                                    Case Is = "MIN", "MINTIME"
+                                    Case Is = "MIN", "MINTIMENEWEST", "MINTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, Globalization.NumberStyles.AllowExponent Or Globalization.NumberStyles.AllowDecimalPoint, Globalization.CultureInfo.CurrentCulture, testSng) Then
-                                                If HistFunc = "MIN" And Key.Key.Scope = "_MIN" + Duration Then myVal = testSng ' historical max value (by duration)
-                                                If HistFunc = "MINTIME" And Key.Key.Scope = "_MINTIME" + Duration Then myVal = testSng
+                                                If HistFunc = "MIN" And Key.Key.Scope = "_MIN" + Duration Then
+                                                    myVal = testSng ' historical max value (by duration)
+                                                Else
+                                                    If Key.Key.Scope = "_MINTIME" + Duration Then myVal = testSng
+                                                End If
                                             End If
                                         Next
                                         Dim tt = 1
