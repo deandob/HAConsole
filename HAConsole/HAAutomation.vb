@@ -533,7 +533,7 @@ Public Class Automation
                             'Dim LogRecs As DataRow() = HS.GetLogs("TIME, MAX(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
                             Dim OrderLimit As String = "TIME"
                             Dim SelectStr As String = "TIME, MAX(CAST(DATA AS REAL)) AS DATA"   ' Get oldest (first) maximum value via MAX function
-                            If CStr(rec("History")).ToUpper() = "MAXTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA, TIME DESC LIMIT 1"     ' Get newest (last) maximum value
+                            If CStr(rec("History")).ToUpper() = "MAXTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA DESC, TIME DESC LIMIT 1"     ' Get newest (last) maximum value
 
                             Dim LogRecs As DataRow() = HS.GetLogs(SelectStr, CondStr, CInt(rec("Category")) - 1, OrderLimit)
                             If LogRecs.Length > 0 AndAlso Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
@@ -553,7 +553,7 @@ Public Class Automation
                             'Dim OrderLimit As String = "DATA, TIME ASC LIMIT 1"             ' Get oldest (first) max value
                             Dim OrderLimit As String = "TIME"
                             Dim SelectStr As String = "TIME, MIN(CAST(DATA AS REAL)) AS DATA"       ' Get oldest (first) min value via MIN function
-                            If CStr(rec("History")).ToUpper() = "MINTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA, TIME ASC LIMIT 1"     ' get newest(last) max val
+                            If CStr(rec("History")).ToUpper() = "MINTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA ASC, TIME DESC LIMIT 1"     ' get newest(last) max val
 
                             'Dim LogRecs As DataRow() = HS.GetLogs("TIME, MIN(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
                             Dim LogRecs As DataRow() = HS.GetLogs(SelectStr, CondStr, CInt(rec("Category")) - 1, OrderLimit)
