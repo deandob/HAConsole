@@ -71,14 +71,19 @@ Module HAConsole
                     DebugMode = Not DebugMode
                     WriteConsole(True, "Debug mode: " + DebugMode.ToString)
                 Case Is = ConsoleKey.S
-                    WriteConsole(True, "Listing StateStore...")
-                    For Each key In HS.HAStateStore.Keys
-                        WriteConsole(True, "Key:" + key.Category + "\" + key.ClassName + "\" + key.Instance + " (scope: " + key.Scope + "), Value: " + HS.HAStateStore(key))
-                    Next
+                    ListStateStore()
             End Select
         End While
         ShutConsole(HAConst.ExitCodes.OK)                                       ' Console shutting down, cleanup before exit
     End Sub
+
+    Public Sub ListStateStore()
+        WriteConsole(True, "Listing StateStore...")
+        For Each key In HS.HAStateStore.Keys
+            WriteConsole(True, "Key:" + key.Category + "\" + key.ClassName + "\" + key.Instance + " (scope: " + key.Scope + "), Value: " + HS.HAStateStore(key))
+        Next
+    End Sub
+
 
     ' Start up the console. Command line arguments passed in args()
     Public Sub InitConsole(args() As String)

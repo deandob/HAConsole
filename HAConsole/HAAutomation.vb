@@ -325,15 +325,17 @@ Public Class Automation
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, testSng) And Key.Key.Scope = "_MAX" + Duration Then
                                                 myVal = testSng                                         ' historical max value (by duration)
-                                                If CSng(EventMessage.Data) > testSng Then               ' If current is larger than duration max, update statestore with value + time
-                                                    FuncMessage.Scope = "_MAX" + Duration
-                                                    FuncMessage.Data = EventMessage.Data
-                                                    HS.SetStoreState(FuncMessage)
-                                                    FuncMessage.Scope = "_MAXTIME" + Duration
-                                                    FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
-                                                    HS.SetStoreState(FuncMessage)
-                                                    If HistFunc <> "MAX" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
-                                                    Exit For
+                                                If CSng(EventMessage.Data) >= testSng Then               ' If current is larger than duration max, update statestore with value + time
+                                                    If HistFunc <> "MAXTIMEOLDEST" Then
+                                                        FuncMessage.Scope = "_MAX" + Duration
+                                                        FuncMessage.Data = EventMessage.Data
+                                                        HS.SetStoreState(FuncMessage)
+                                                        FuncMessage.Scope = "_MAXTIME" + Duration
+                                                        FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
+                                                        HS.SetStoreState(FuncMessage)
+                                                        If HistFunc <> "MAX" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
+                                                        Exit For
+                                                    End If
                                                 End If
                                             End If
                                             If Key.Key.Scope = "_MAXTIME" + Duration And HistFunc <> "MAX" Then myVal = testSng : Exit For
@@ -346,15 +348,17 @@ Public Class Automation
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, testSng) And Key.Key.Scope = "_MIN" + Duration Then
                                                 myVal = testSng                                         ' historical max value (by duration)
-                                                If CSng(EventMessage.Data) < testSng Then               ' If current is larger than duration max, update statestore with value + time
-                                                    FuncMessage.Scope = "_MIN" + Duration
-                                                    FuncMessage.Data = EventMessage.Data
-                                                    HS.SetStoreState(FuncMessage)
-                                                    FuncMessage.Scope = "_MINTIME" + Duration
-                                                    FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
-                                                    HS.SetStoreState(FuncMessage)
-                                                    If HistFunc <> "MIN" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
-                                                    Exit For
+                                                If CSng(EventMessage.Data) <= testSng Then               ' If current is larger than duration max, update statestore with value + time
+                                                    If HistFunc <> "MINTIMEOLDEST" Then
+                                                        FuncMessage.Scope = "_MIN" + Duration
+                                                        FuncMessage.Data = EventMessage.Data
+                                                        HS.SetStoreState(FuncMessage)
+                                                        FuncMessage.Scope = "_MINTIME" + Duration
+                                                        FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
+                                                        HS.SetStoreState(FuncMessage)
+                                                        If HistFunc <> "MIN" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
+                                                        Exit For
+                                                    End If
                                                 End If
                                             End If
                                             If Key.Key.Scope = "_MINTIME" + Duration And HistFunc <> "MIN" Then myVal = testSng : Exit For
@@ -371,14 +375,23 @@ Public Class Automation
                             WriteConsole(False, TestTrans + " function: " + CStr(FuncRow("FuncType")) + " Incremental value: " + CStr(CalcVal))
                         Next
                         WriteConsole(False, "-------- End Transform: " + TestTrans)
-
-                        ' Apply rounding to the result, and create new event message
-                        'WriteConsole(False, "Transform created message: " + HS.GetCatName(CByte(TFRow(0)("Category"))) + "/" + CStr(TFRow(0)("Class")) + " " + CStr(TFRow(0)("Instance")) + ":" + CStr(CalcVal) + " (" + CStr(TFRow(0)("Scope")) + ")")
-                        HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")), _
-                                         CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), HS.GetCatName(CByte(TFRow(0)("Category"))), GlobalVars.myNetNum)
+                        Dim TestStore As New Structures.HAMessageStruc
+                        TestStore.Category = HS.GetCatName(CByte(TFRow(0)("Category")))
+                        TestStore.Network = GlobalVars.myNetNum
+                        TestStore.Instance = CStr(TFRow(0)("Instance"))
+                        TestStore.Scope = CStr(TFRow(0)("Scope"))
+                        TestStore.ClassName = CStr(TFRow(0)("Class"))
+                        TestStore.Data = CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero))
+                        If HS.GetStoreState(TestStore).ToUpper <> TestStore.Data.ToUpper Then            ' Only save a message if the data is different
+                            ' Apply rounding to the result, and create new event message
+                            HS.CreateMessage(TestStore.ClassName, HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, TestStore.Instance, TestStore.Scope,
+                                             CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), TestStore.Category, TestStore.Network)
+                            'HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")),
+                            'CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), HS.GetCatName(CByte(TFRow(0)("Category"))), GlobalVars.myNetNum)
+                        End If
                     End If
                 End If
-            Next
+        Next
 
         End SyncLock
 
@@ -839,9 +852,11 @@ Public Class Automation
         Dim TrigTimeOfDay = CLng(row.Item("TrigTimeOfDay"))
         If TrigTimeOfDay <> 0 Then
             Dim TrigDate = Date.FromBinary(TrigTimeOfDay).ToLocalTime()
+            'WriteConsole(True, "time trigger enter " + CStr(row("TrigName")) + " " + Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute.ToString)
             If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Hour <> Date.Now.Hour Then Exit Function
             If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute <> Date.Now.Minute Then Exit Function
-            If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Only trigger once per day
+            If CLng(row.Item("TrigLastFired")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Only trigger once per day
+            'WriteConsole(True, "time trigger found " + CStr(row("TrigName")))
         End If
 
         MatchTime = True                                        ' Made it here, so the time trigger is valid

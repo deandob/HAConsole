@@ -5,6 +5,7 @@ Imports Commons                 ' Common interfaces and structures for HA Server
 
 ' CLR namespaces
 Imports System.IO
+Imports System.Text
 Imports System.Reflection
 'Imports System.Net.WebSockets
 Imports System.Threading
@@ -13,6 +14,7 @@ Imports System.Security
 Imports System.Collections.Concurrent
 Imports HAConsole.HAUtils
 Imports fastJSON
+Imports System.Text.RegularExpressions
 
 Namespace HAServices
 
@@ -40,6 +42,8 @@ Namespace HAServices
         Private OldTime As Date = DateTime.Now                            ' Used by the timer to see if minutes, hours, days etc. have gone past
 
         Private AllMessages As New Structures.HAMessageStruc                    ' No message, used for processing triggers (returns true when testing for event messages) to ignore message checks when testing for time based triggers
+
+        Public Shared ClientLogs As String = ""                                ' Global used to send console logs to clients
 
         Private ServiceState As Integer = HAConst.ServiceState.PAUSE    ' Server state variable, initially paused (taking messages but not processing)
 
@@ -362,6 +366,7 @@ Namespace HAServices
         ' THREAD: Process all the DB actions on the DB action message queue. Use a message queue to ensure single thread access to the database
         Private Sub ProcessDBActions()
             Try
+                Dim rx As New Regex("[^\u0020-\u007F]")
                 For Each DBMsg As Structures.HAMessageStruc In DBActionBQ.GetConsumingEnumerable
                     Try
                         Do While PauseDB = True                                     ' If the DB is paused wait until it is free before processing more actions for DB
@@ -394,7 +399,11 @@ Namespace HAServices
                                 SQLCmd = CType(LogConn.Item(GetCatNum(DBMsg.Category) - 1), SQLite.SQLiteConnection).CreateCommand
                                 'MsgBox(Date.UtcNow.ToString + " (" + Date.UtcNow.ToBinary.ToString + " " + Date.UtcNow.Ticks.ToString + "  --- " + New Date(DBMsg.Time.Ticks).ToString + " + " + DBMsg.Time.Ticks.ToString + " " + DBMsg.Time.ToBinary.ToString)
                                 'SQLCmd.CommandText = "INSERT INTO MessLog (time, func, level, network, category, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", " + DBMsg.Func.ToString + ", " + DBMsg.Level.ToString + ", " + DBMsg.Network.ToString + ", " + GetCatNum(DBMsg.Category).ToString + ", '" + DBMsg.ClassName + "', '" + DBMsg.Instance + "', '" + DBMsg.Scope + "', '" + DBMsg.Data + "')"
+
+                                ' TODO: For class, scope, instance only accept letters and numbers (a \ will cause a crash)                             
                                 SQLCmd.CommandText = "INSERT INTO MessLog (time, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", '" + DBMsg.ClassName + "', '" + DBMsg.Instance + "', '" + DBMsg.Scope + "', '" + DBMsg.Data + "')"
+                                'SQLCmd.CommandText = "INSERT INTO MessLog (time, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.ClassName)) + "', '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.Instance)) + "', '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.Scope)) + "', '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.Data)) + "')"       ' Strip any non ASCII characters that can cause a crash
+                                'SQLCmd.CommandText = "INSERT INTO MessLog (time, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", '" + StripStr(DBMsg.ClassName) + "', '" + StripStr(DBMsg.Instance) + "', '" + StripStr(DBMsg.Scope) + "', '" + StripStr(DBMsg.Data) + "')"
                                 SQLCmd.ExecuteNonQuery()
                             End If
                         End SyncLock
@@ -495,6 +504,19 @@ Namespace HAServices
                                     Case Is = "HISTORY"
                                         Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = ProcessGetHistory(myMessage.Scope, CLng(myMessage.Data.Split(","c)(0)), CLng(myMessage.Data.Split(","c)(1)))      ' Send message back to client with data in datatable
                                         HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
+                                    Case Is = "CONSOLE"
+                                        Select Case myMessage.Data.ToUpper
+                                            Case Is = "START"
+                                                ClientLogs = myMessage.Instance.ToUpper                 ' Global used when writing console logs to send to client named
+                                            Case Is = "STOP"
+                                                ClientLogs = ""
+                                            Case Is = "START DEBUG"
+                                                If ClientLogs <> "" Then HAConsole.DebugMode = True
+                                            Case Is = "STOP DEBUG"
+                                                If ClientLogs <> "" Then HAConsole.DebugMode = False
+                                            Case Is = "STATESTORE"
+                                                If ClientLogs <> "" Then HAConsole.ListStateStore()
+                                        End Select
                                     Case Is = "SETTINGS"
                                         Dim myParams As String() = ParseCmd(myMessage.Scope)
                                         If myParams IsNot Nothing Then
@@ -735,6 +757,9 @@ Namespace HAServices
                     Return GlobalVars.NetworkColl.ToArray
                 Case Is = "INI"
                     Return GetIniSettings(Data)
+                Case Is = "VALUE"
+                    Dim DataSplit = Data.Split("/"c)
+                    Return GetStoreState(New Structures.HAMessageStruc With {.Network = GlobalVars.myNetNum, .Category = DataSplit(0), .ClassName = DataSplit(1), .Instance = DataSplit(2), .Scope = DataSplit(3)}).ToArray
             End Select
             Return DummyArray                             ' Nothing selected
         End Function
@@ -750,17 +775,21 @@ Namespace HAServices
             Dim FinishTime As Long = HAUtils.FromJSTIme(finish)
             'Dim CondStr As String = "CATEGORY=" + CStr(GetCatNum(ChSplit(0))) + " AND CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
             Dim CondStr As String = "CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
-            Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1, "TIME ASC")
+            Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1, "TIME DESC")
             Dim GetColl As New List(Of Object)
             If IsNothing(getRows) Then Return Nothing
 
-            For rowNum = 0 To getRows.Length - 1
-                If rowNum <> 0 And rowNum <> (getRows.Length - 1) Then              'only add if the previous or next record is different to compress dataset
-                    If getRows(rowNum)(1).ToString() <> getRows(rowNum - 1)(1).ToString() Or getRows(rowNum)(1).ToString() <> getRows(rowNum + 1)(1).ToString() Then GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-                Else
-                    GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-                End If
+            ' Can't compress dataset as time will be unique for each record
+            For Each rowNum In getRows
+                GetColl.Add(rowNum(0).ToString() + "," + rowNum(1).ToString())
             Next
+            'For rowNum = 0 To getRows.Length - 1
+            'If rowNum <> 0 And rowNum <> (getRows.Length - 1) Then              'only add if the previous or next record is different to compress dataset
+            'If getRows(rowNum)(1).ToString() <> getRows(rowNum - 1)(1).ToString() Or getRows(rowNum)(1).ToString() <> getRows(rowNum + 1)(1).ToString() Then GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
+            'Else
+            'GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
+            'End If
+            'Next
             'Dim record, oldY As String
             'For Each dr As DataRow In getRows
             '    record = dr(0).ToString + "," + dr(1).ToString

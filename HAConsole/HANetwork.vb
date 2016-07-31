@@ -3,6 +3,10 @@ Imports SuperWebSocket
 Imports System.Net
 Imports System.Collections.Concurrent
 Imports Commons
+Imports System.Text
+Imports System.Text.RegularExpressions
+Imports System.Runtime.InteropServices
+
 
 ' For FastJSON deserialiser to work, the same commons file needs to be used by both the client and the server as the assembly info for the type is sent in the JSON string, and it needs to be identical on both sides to work
 
@@ -55,12 +59,12 @@ Namespace HANetwork
                 ' Initialise the server
                 WSServer = New WebSocketServer
 
-                Dim SocketRootConfig As New SuperSocket.SocketBase.Config.RootConfig() 
+                Dim SocketRootConfig As New SuperSocket.SocketBase.Config.RootConfig()
                 Dim SocketServerConfig As New SuperSocket.SocketBase.Config.ServerConfig() With {
-                    .Name = "HAConsole", _
-                    .Ip = "Any", _
-                    .Port = WSPort, _
-                    .Mode = SuperSocket.SocketBase.SocketMode.Tcp, _
+                    .Name = "HAConsole",
+                    .Ip = "Any",
+                    .Port = WSPort,
+                    .Mode = SuperSocket.SocketBase.SocketMode.Tcp,
                     .MaxRequestLength = 140000}         'Max message size is 140K
                 WSServer.Setup(SocketRootConfig, SocketServerConfig)
 
@@ -69,10 +73,10 @@ Namespace HANetwork
                 WSPlugins = New WebSocketServer
                 Dim PluginRootConfig As New SuperSocket.SocketBase.Config.RootConfig()
                 Dim PluginServerConfig As New SuperSocket.SocketBase.Config.ServerConfig() With {
-                    .Name = "HAConsolePlug", _
-                    .Ip = "Any", _
-                    .Port = WSPort + 1, _
-                    .Mode = SuperSocket.SocketBase.SocketMode.Tcp, _
+                    .Name = "HAConsolePlug",
+                    .Ip = "Any",
+                    .Port = WSPort + 1,
+                    .Mode = SuperSocket.SocketBase.SocketMode.Tcp,
                     .MaxRequestLength = 140000}         'Max message size is 140K
                 WSPlugins.Setup(PluginRootConfig, PluginServerConfig)
 
@@ -112,7 +116,7 @@ Namespace HANetwork
 
         ' THREAD: Called on completion of a message received
         Public Sub WSReceive(session As WebSocketSession, e As String) Handles WSServer.NewMessageReceived
-            Dim ClientMsg As String = e
+            Dim ClientMsg As String = Regex.Replace(e, "[^\u0020-\u007F]", String.Empty)            ' Reject bad characters
             Dim ClientName As String = ""
             Dim MsgSubmitted As Structures.HAMessageStruc
             If ClientMsg = "" Then
@@ -120,7 +124,7 @@ Namespace HANetwork
             ElseIf ClientMsg.Substring(0, 2) = "{""" Then  ' Simple parsing looking for JSON string
                 Dim HAMessage = DirectCast(fastJSON.JSON.Parse(ClientMsg), IDictionary(Of String, Object))
                 ClientName = HAMessage("Client").ToString
-                'WriteConsole(False, "Command Received from client " + ClientName + ", Message: " + HAMessage("Scope").ToString + " Data: " + HAMessage("Data").ToString)
+                WriteConsole(False, "Command Received from client " + ClientName + ", Message: " + HAMessage("Scope").ToString + " Data: " + HAMessage("Data").ToString)
                 If CByte(HAMessage("Func")) = HAConst.MessFunc.ACTION And HAMessage("Category").ToString.ToUpper = "SYSTEM" And HAMessage("ClassName").ToString.ToUpper = "NETWORK" Then                   ' Handle network messages here
                     Select Case HAMessage("Scope").ToString.ToUpper
                         Case Is = "CONNECT"                                                                         ' Command in the form of [CONNECT]ClientName
@@ -145,7 +149,7 @@ Namespace HANetwork
         End Sub
         ' THREAD: Called on completion of a message received from node.js pluginmgr
         Public Sub PlugReceive(session As SuperWebSocket.WebSocketSession, e As String) Handles WSPlugins.NewMessageReceived
-            Dim PluginMsg As String = e
+            Dim PluginMsg As String = Regex.Replace(e, "[^\u0020-\u007F]", String.Empty)            ' Reject bad characters
             If PluginMsg.Substring(0, 2) = "{""" Then                                                       ' Simple parsing looking for JSON string
                 Dim HAMessage As New Structures.HAMessageStruc
                 HAMessage = fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(PluginMsg)
@@ -153,7 +157,7 @@ Namespace HANetwork
                     Select Case HAMessage.Category
                         Case Is = "SYSTEM"
                             Select Case HAMessage.ClassName
-                                Case Is = "SETTINGS"
+                                Case Is = "SETTINGS"                                ' Should this be in message Management section?
                                     Select Case HAMessage.Instance.ToUpper
                                         Case Is = "GET:CATEGORIES()"
                                             HAMessage.Data = fastJSON.JSON.ToJSON(GlobalVars.CategoryColl.ToArray)
@@ -285,7 +289,7 @@ Namespace HANetwork
                 Dim EncJSON As String = fastJSON.JSON.ToJSON(myMessage)                                        ' Convert the whole message to JSON
                 'WriteConsole(False, "Msg sent to client: " + myMessage.Instance + " Data: " + myMessage.Data)
 
-                WriteConsole(False, "---- Sending to Client: " + Client + " classname: " + myMessage.ClassName + " instance: " + myMessage.Instance + " scope: " + myMessage.Scope + " data: " + myMessage.Data)
+                If myMessage.ClassName <> "CONSOLE" Then WriteConsole(False, "----> Sending to Client: " + Client + " classname: " + myMessage.ClassName + " instance: " + myMessage.Instance + " scope: " + myMessage.Scope + " data: " + myMessage.Data)
                 Return SendJSONMsg(Client, EncJSON)
             End If
         End Function
@@ -315,39 +319,46 @@ Namespace HANetwork
         End Structure
 
         Private Function ConnectClient(Client As WebSocketSession, ClientName As String, ClientData As String) As Boolean
-            If Not IsNothing(ClientName) And ClientName <> "" Then
+            If Not IsNothing(ClientName) Then
                 Dim RespMsg As New Structures.HAMessageStruc
                 RespMsg = SendRespTempl
-                If ClientName = "local_machine" Then
+                If ClientName = "" Then                             ' No client name supplied, check DNS and return client name
                     ClientName = Dns.GetHostEntry(Client.RemoteEndPoint.Address.ToString).HostName      ' XXXX Need to test this across the internet/firewall
-                    RespMsg.Scope = "CONNECT"
                 Else
                     ' User specified, so do authorisation here....
-                    RespMsg.Scope = "AUTHENTICATED"
+                    'RespMsg.Scope = "AUTHENTICATED"
                 End If
+                RespMsg.Scope = "CONNECT"
                 Dim myConn As ConnStruc
                 myConn.ClientName = ClientName
                 myConn.ServerName = GlobalVars.myNetName
                 RespMsg.Data = fastJSON.JSON.ToJSON(myConn)
-                If IsNothing(Client.Cookies("clientname")) Then
-                    Dim NewClient As New ClientStruc
-                    NewClient.ClientContext = Client
-                    NewClient.ConnectTime = Date.Now
-                    'WriteConsole(True, Dns.GetHostEntry(Client.RemoteEndPoint.Address.ToString).HostName)
-                    'NewClient.LastMsg = Date.Now
-                    NewClient.Subscribed = New List(Of String)
-                    If HAClients.ContainsKey(ClientName) Then ClientName = ClientName + "1" ' TODO Keep adding session numbers
-                    HAClients(ClientName) = NewClient                                   ' Create a client session with the name of the client as the key, client context as value (multiple connects OK)
-                    Client.Cookies.Add("clientname", ClientName)                                   ' Add client name to the supersocket session object so we can identify it on disconnect
-                    WriteConsole(True, "Client '" + ClientName + "' registered from IP address " + Client.RemoteEndPoint.Address.ToString)
-                    'Dim jsonText As String = SerialiseHAMsg(RespMsg)
-                    'NewClient.ClientContext.Send(jsonText)                      ' send message to client
-                Else
-                    WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
-                End If
+                '                If IsNothing(Client.Cookies("clientname")) Then
+                Dim NewClient As New ClientStruc
+                NewClient.ClientContext = Client
+                NewClient.ConnectTime = Date.Now
+                'NewClient.LastMsg = Date.Now
+                NewClient.Subscribed = New List(Of String)
+                '                    If Not HAClients.ContainsKey(ClientName) Then
+                HAClients(ClientName) = NewClient                                   ' Create a client session with the name of the client as the key, client context as value (multiple connects OK)
+                Client.Cookies.Add("clientname", ClientName)                                   ' Add client name to the supersocket session object so we can identify it on disconnect
+                WriteConsole(True, "Client '" + ClientName + "' registered from IP address " + Client.RemoteEndPoint.Address.ToString)
                 Dim jsonText As String = SerialiseHAMsg(RespMsg)
                 HAClients(ClientName).ClientContext.Send(jsonText)                      ' send message to client
+                '                   Else
+                '                        WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
+                '                        DisconnectClient(Client, ClientName, ClientData)
+                '                        Client.CloseWithHandshake("Already Logged On")
+                '            End If
+                '               Else
+                '                    WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
+                '                    DisconnectClient(Client, ClientName, ClientData)
+                '                    Client.CloseWithHandshake("Already Logged On")
+                '            End If
+            Else
+                WriteConsole(True, "Client connect request without a valid client name '" + ClientName + "'. Aborting request.")
             End If
+
         End Function
 
         Private Function DisconnectClient(Client As WebSocketSession, ClientName As String, ClientData As String) As Boolean
@@ -400,6 +411,5 @@ Namespace HANetwork
         End Sub
 
     End Class
-
 
 End Namespace
