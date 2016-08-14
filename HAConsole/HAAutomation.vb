@@ -33,6 +33,10 @@ Public Class Automation
 
     Private Shared AutoFile As String                                   ' Location for the automation DB file
 
+    ' NOTE: All time/dates are in UTC
+
+    'TODO: Dynamic update to the trigger and transform engines when changes to the DB are made. Currently have to reset to lock in a change.
+
 #Region "Initialization"
     ' Initialize the automation database including creating the tables if the db file doesn't exist
     Public Shared Sub InitAutoDB()
@@ -314,46 +318,50 @@ Public Class Automation
 
                                     Case Is = "COUNT"
 
-                                    Case Is = "MAX", "MAXTIME"
+                                    Case Is = "MAX", "MAXTIMENEWEST", "MAXTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, testSng) And Key.Key.Scope = "_MAX" + Duration Then
                                                 myVal = testSng                                         ' historical max value (by duration)
-                                                If CSng(EventMessage.Data) > testSng Then               ' If current is larger than duration max, update statestore with value + time
-                                                    FuncMessage.Scope = "_MAX" + Duration
-                                                    FuncMessage.Data = EventMessage.Data
-                                                    HS.SetStoreState(FuncMessage)
-                                                    FuncMessage.Scope = "_MAXTIME" + Duration
-                                                    FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
-                                                    HS.SetStoreState(FuncMessage)
-                                                    If CStr(FuncRow("History")).ToUpper() = "MAXTIME" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
-                                                    Exit For
+                                                If CSng(EventMessage.Data) >= testSng Then               ' If current is larger than duration max, update statestore with value + time
+                                                    If HistFunc <> "MAXTIMEOLDEST" Then
+                                                        FuncMessage.Scope = "_MAX" + Duration
+                                                        FuncMessage.Data = EventMessage.Data
+                                                        HS.SetStoreState(FuncMessage)
+                                                        FuncMessage.Scope = "_MAXTIME" + Duration
+                                                        FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
+                                                        HS.SetStoreState(FuncMessage)
+                                                        If HistFunc <> "MAX" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
+                                                        Exit For
+                                                    End If
                                                 End If
                                             End If
-                                            If Key.Key.Scope = "_MAXTIME" + Duration And HistFunc = "MAXTIME" Then myVal = testSng : Exit For
+                                            If Key.Key.Scope = "_MAXTIME" + Duration And HistFunc <> "MAX" Then myVal = testSng : Exit For
                                         Next
 
-                                    Case Is = "MIN", "MINTIME"
+                                    Case Is = "MIN", "MINTIMENEWEST", "MINTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, testSng) And Key.Key.Scope = "_MIN" + Duration Then
                                                 myVal = testSng                                         ' historical max value (by duration)
-                                                If CSng(EventMessage.Data) < testSng Then               ' If current is larger than duration max, update statestore with value + time
-                                                    FuncMessage.Scope = "_MIN" + Duration
-                                                    FuncMessage.Data = EventMessage.Data
-                                                    HS.SetStoreState(FuncMessage)
-                                                    FuncMessage.Scope = "_MINTIME" + Duration
-                                                    FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
-                                                    HS.SetStoreState(FuncMessage)
-                                                    If CStr(FuncRow("History")).ToUpper() = "MINTIME" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
-                                                    Exit For
+                                                If CSng(EventMessage.Data) <= testSng Then               ' If current is larger than duration max, update statestore with value + time
+                                                    If HistFunc <> "MINTIMEOLDEST" Then
+                                                        FuncMessage.Scope = "_MIN" + Duration
+                                                        FuncMessage.Data = EventMessage.Data
+                                                        HS.SetStoreState(FuncMessage)
+                                                        FuncMessage.Scope = "_MINTIME" + Duration
+                                                        FuncMessage.Data = HAUtils.ToJSTime(EventMessage.Time.Ticks()).ToString()
+                                                        HS.SetStoreState(FuncMessage)
+                                                        If HistFunc <> "MIN" Then myVal = EventMessage.Time.Ticks() Else myVal = CSng(EventMessage.Data)
+                                                        Exit For
+                                                    End If
                                                 End If
                                             End If
-                                            If Key.Key.Scope = "_MINTIME" + Duration And HistFunc = "MINTIME" Then myVal = testSng : Exit For
+                                            If Key.Key.Scope = "_MINTIME" + Duration And HistFunc <> "MIN" Then myVal = testSng : Exit For
                                         Next
                                 End Select
                             Else
@@ -367,14 +375,23 @@ Public Class Automation
                             WriteConsole(False, TestTrans + " function: " + CStr(FuncRow("FuncType")) + " Incremental value: " + CStr(CalcVal))
                         Next
                         WriteConsole(False, "-------- End Transform: " + TestTrans)
-
-                        ' Apply rounding to the result, and create new event message
-                        'WriteConsole(False, "Transform created message: " + HS.GetCatName(CByte(TFRow(0)("Category"))) + "/" + CStr(TFRow(0)("Class")) + " " + CStr(TFRow(0)("Instance")) + ":" + CStr(CalcVal) + " (" + CStr(TFRow(0)("Scope")) + ")")
-                        HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")), _
-                                         CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), HS.GetCatName(CByte(TFRow(0)("Category"))), GlobalVars.myNetNum)
+                        Dim TestStore As New Structures.HAMessageStruc
+                        TestStore.Category = HS.GetCatName(CByte(TFRow(0)("Category")))
+                        TestStore.Network = GlobalVars.myNetNum
+                        TestStore.Instance = CStr(TFRow(0)("Instance"))
+                        TestStore.Scope = CStr(TFRow(0)("Scope"))
+                        TestStore.ClassName = CStr(TFRow(0)("Class"))
+                        TestStore.Data = CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero))
+                        If HS.GetStoreState(TestStore).ToUpper <> TestStore.Data.ToUpper Then            ' Only save a message if the data is different
+                            ' Apply rounding to the result, and create new event message
+                            HS.CreateMessage(TestStore.ClassName, HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, TestStore.Instance, TestStore.Scope,
+                                             CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), TestStore.Category, TestStore.Network)
+                            'HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")),
+                            'CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), HS.GetCatName(CByte(TFRow(0)("Category"))), GlobalVars.myNetNum)
+                        End If
                     End If
                 End If
-            Next
+        Next
 
         End SyncLock
 
@@ -444,6 +461,7 @@ Public Class Automation
         WriteConsole(True, "Loading history data from database...")
         Dim FunctionsRecs() As DataRow = GetFunctionsInfo("")
         For Each rec As DataRow In FunctionsRecs
+            '''            Exit For       '----------------------------------------------------------------------------------------------------------------
             Dim Duration = ""
             If CStr(rec("Type")) <> "" Then              ' Process functions with a valid history field
                 Dim StartDate As New DateTime
@@ -471,7 +489,7 @@ Public Class Automation
                 Dim scopeStr = ""
                 If CStr(rec("Scope")) <> "" Then scopeStr = " AND SCOPE LIKE '%" + CStr(rec("Scope")) + "%'" ' Allow partial matching
                 'Dim CondStr = "CATEGORY=" + CStr(rec("Category")) + " AND CLASS='" + CStr(rec("Class")) + "' AND INSTANCE='" + CStr(rec("Instance")) + "'" + scopeStr + _
-                Dim CondStr = "CLASS='" + CStr(rec("Class")) + "' AND INSTANCE='" + CStr(rec("Instance")) + "'" + scopeStr + _
+                Dim CondStr = "CLASS='" + CStr(rec("Class")) + "' AND INSTANCE='" + CStr(rec("Instance")) + "'" + scopeStr +
                               " AND TIME BETWEEN " + StartDate.Ticks().ToString() + " AND " + Date.UtcNow.Ticks().ToString()
                 Dim HistMsg As Structures.HAMessageStruc
                 HistMsg.Network = GlobalVars.myNetNum
@@ -488,7 +506,7 @@ Public Class Automation
                         Dim WeightAvg As Single = 0
 
                         ' Get all matching records in the timerange
-                        Dim LogRecs As DataRow() = HS.GetLogs("TIME,DATA", CondStr, CInt(rec("Category")) - 1)
+                        Dim LogRecs As DataRow() = HS.GetLogs("TIME,DATA", CondStr, CInt(rec("Category")) - 1, "TIME ASC")
 
                         If LogRecs.Count > 0 Then
                             Dim TimeWeight As Long
@@ -521,12 +539,17 @@ Public Class Automation
 
                     Case Is = "COUNT"
 
-                    Case Is = "MAX", "MAXTIME"
+                    Case Is = "MAX", "MAXTIMENEWEST", "MAXTIMEOLDEST"
                         ' Get all matching records in the timerange and return maximum value & time recorded
                         HistMsg.Scope = "_MAX" + Duration
                         If IsNothing(HS.GetStoreState(HistMsg)) Then                    ' Don't hit database again if store max already exists
-                            Dim LogRecs As DataRow() = HS.GetLogs("TIME, MAX(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
-                            If LogRecs.Count > 0 And Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
+                            'Dim LogRecs As DataRow() = HS.GetLogs("TIME, MAX(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
+                            Dim OrderLimit As String = "TIME"
+                            Dim SelectStr As String = "TIME, MAX(CAST(DATA AS REAL)) AS DATA"   ' Get oldest (first) maximum value via MAX function
+                            If CStr(rec("History")).ToUpper() = "MAXTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA DESC, TIME DESC LIMIT 1"     ' Get newest (last) maximum value
+
+                            Dim LogRecs As DataRow() = HS.GetLogs(SelectStr, CondStr, CInt(rec("Category")) - 1, OrderLimit)
+                            If LogRecs.Length > 0 AndAlso Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
                                 HistMsg.Data = CStr(LogRecs(LogRecs.Count - 1)("DATA"))
                                 HS.SetStoreState(HistMsg)                               ' Save the maximum value
                                 HistMsg.Scope = "_MAXTIME" + Duration
@@ -536,11 +559,18 @@ Public Class Automation
                             End If
                         End If
 
-                    Case Is = "MIN", "MINTIME"
+                    Case Is = "MIN", "MINTIMENEWEST", "MINTIMEOLDEST"
                         HistMsg.Scope = "_MIN" + Duration
                         If IsNothing(HS.GetStoreState(HistMsg)) Then                    ' Don't hit database again if store max already exists
-                            Dim LogRecs As DataRow() = HS.GetLogs("TIME, MIN(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
-                            If LogRecs.Count > 0 And Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
+
+                            'Dim OrderLimit As String = "DATA, TIME ASC LIMIT 1"             ' Get oldest (first) max value
+                            Dim OrderLimit As String = "TIME"
+                            Dim SelectStr As String = "TIME, MIN(CAST(DATA AS REAL)) AS DATA"       ' Get oldest (first) min value via MIN function
+                            If CStr(rec("History")).ToUpper() = "MINTIMENEWEST" Then SelectStr = "TIME, DATA" : OrderLimit = "DATA ASC, TIME DESC LIMIT 1"     ' get newest(last) max val
+
+                            'Dim LogRecs As DataRow() = HS.GetLogs("TIME, MIN(CAST(DATA AS REAL)) AS DATA", CondStr, CInt(rec("Category")) - 1)
+                            Dim LogRecs As DataRow() = HS.GetLogs(SelectStr, CondStr, CInt(rec("Category")) - 1, OrderLimit)
+                            If LogRecs.Count > 0 AndAlso Not IsDBNull(LogRecs(LogRecs.Count - 1)("DATA")) Then
                                 HistMsg.Data = CStr(LogRecs(LogRecs.Count - 1)("DATA"))
                                 HS.SetStoreState(HistMsg)                               ' Save the minimum value
                                 HistMsg.Scope = "_MINTIME" + Duration
@@ -590,25 +620,31 @@ Public Class Automation
 
                                     Case Is = "COUNT"
 
-                                    Case Is = "MAX", "MAXTIME"
+                                    Case Is = "MAX", "MAXTIMENEWEST", "MAXTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, Globalization.NumberStyles.AllowExponent Or Globalization.NumberStyles.AllowDecimalPoint, Globalization.CultureInfo.CurrentCulture, testSng) Then
-                                                If HistFunc = "MAX" And Key.Key.Scope = "_MAX" + Duration Then myVal = testSng ' historical max value (by duration)
-                                                If HistFunc = "MAXTIME" And Key.Key.Scope = "_MAXTIME" + Duration Then myVal = testSng
+                                                If HistFunc = "MAX" And Key.Key.Scope = "_MAX" + Duration Then
+                                                    myVal = testSng ' historical max value (by duration)
+                                                Else
+                                                    If Key.Key.Scope = "_MAXTIME" + Duration Then myVal = testSng
+                                                End If
                                             End If
                                         Next
 
-                                    Case Is = "MIN", "MINTIME"
+                                    Case Is = "MIN", "MINTIMENEWEST", "MINTIMEOLDEST"
                                         FuncMessage.Scope = ""                          ' Check all values in the statestore for the channel
                                         Dim foundKeys As Dictionary(Of Structures.StateStoreKey, String) = HS.SearchStoreStates(FuncMessage)
                                         Dim testSng As Single
                                         For Each Key In foundKeys
                                             If Single.TryParse(Key.Value, Globalization.NumberStyles.AllowExponent Or Globalization.NumberStyles.AllowDecimalPoint, Globalization.CultureInfo.CurrentCulture, testSng) Then
-                                                If HistFunc = "MIN" And Key.Key.Scope = "_MIN" + Duration Then myVal = testSng ' historical max value (by duration)
-                                                If HistFunc = "MINTIME" And Key.Key.Scope = "_MINTIME" + Duration Then myVal = testSng
+                                                If HistFunc = "MIN" And Key.Key.Scope = "_MIN" + Duration Then
+                                                    myVal = testSng ' historical max value (by duration)
+                                                Else
+                                                    If Key.Key.Scope = "_MINTIME" + Duration Then myVal = testSng
+                                                End If
                                             End If
                                         Next
                                         Dim tt = 1
@@ -635,51 +671,54 @@ Public Class Automation
     ' Process automation events, test each trigger for a match to the event message, then if there is an event attached to the trigger run the actions associated with that event
     Public Shared Function AutomationEvents(EventMessage As Structures.HAMessageStruc) As Boolean
         Dim EventRun As New ArrayList                                                                                               ' Keep a list of the events that have been run so we don't end up ServiceState.RUNNING the event twice if different triggers fire
+        SyncLock AccessDB
+            For Each TrigRow As DataRow In TriggersDT.Rows                                                                              ' Loop through each trigger looking for a match (use trigger list not eventtriggers as there may be multiple events using the same trigger)
 
-        For Each TrigRow As DataRow In TriggersDT.Rows                                                                              ' Loop through each trigger looking for a match (use trigger list not eventtriggers as there may be multiple events using the same trigger)
+                If MatchTrigger(TrigRow, EventMessage) Then                                                                             ' Got a match, so check to see what events have this trigger registered and run all their actions
 
-            If MatchTrigger(TrigRow, EventMessage) Then                                                                             ' Got a match, so check to see what events have this trigger registered and run all their actions
+                    For Each EventTriggerRow In EventTriggersDT.Select("TrigName = '" + CStr(TrigRow("TrigName")) + "'"c)                ' Get all the events that are registered with this trigger
+                        Dim myEvent() As DataRow = GetEventsInfo(CStr(EventTriggerRow("EventName")))                                     ' Get the event information
 
-                For Each EventTriggerRow In EventTriggersDT.Select("TrigName = '" + CStr(TrigRow("TrigName")) + "'"c)                ' Get all the events that are registered with this trigger
-                    Dim myEvent() As DataRow = GetEventsInfo(CStr(EventTriggerRow("EventName")))                                     ' Get the event information
+                        If myEvent.Count <> 0 And myEvent(0) IsNot Nothing Then                                                                                      ' Check that the event actually exists
+                            If CBool(myEvent(0).Item("EventActive")) Then                                                               ' Is the event enabled
+                                Dim EventName As String = CStr(myEvent(0).Item("EventName"))
 
-                    If myEvent.Count <> 0 Then                                                                                      ' Check that the event actually exists
+                                ' Run each action associated with the event
+                                If EventRun.IndexOf(EventName) = -1 Then                                                                ' Has this event already been run in this instance? (returns -1 if eventname is not in the list, so has not been run)
+                                    EventRun.Add(EventName)                                                                             ' Save this event name to the run list so that the event isn't run several times
 
-                        If CBool(myEvent(0).Item("EventActive")) Then                                                               ' Is the event enabled
-                            Dim EventName As String = CStr(myEvent(0).Item("EventName"))
+                                    ' Check to see if we are within the active times for the event, if not, skip to the next trigger
+                                    If Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) > Date.Now Then Continue For
+                                    If CLng(myEvent(0).Item("EventStop")) <> 0 Then If Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) < Date.Now Then Continue For       ' null date is 0 so check it first
 
-                            ' Run each action associated with the event
-                            If EventRun.IndexOf(EventName) = -1 Then                                                                ' Has this event already been run in this instance? (returns -1 if eventname is not in the list, so has not been run)
-                                EventRun.Add(EventName)                                                                             ' Save this event name to the run list so that the event isn't run several times
+                                    Dim RunActions As String = "Actions: "
+                                    Dim myEventActions() As DataRow = GetEventActionsInfo(EventName)                                    ' Get the actions associated with the event
+                                    For Each EventAction As DataRow In myEventActions                                                   ' Loop through all the actions tagged to the event
+                                        Dim myActions() As DataRow = GetActionsInfo(CStr(EventAction.Item("ActionName")))
+                                        RunActions = RunActions + CStr(myActions(0).Item("ActionName")) + ", "                          ' Record the actions processed
+                                        System.Threading.ThreadPool.QueueUserWorkItem(AddressOf ProcessAction, myActions(0))            ' Multithreaded with threadpool (25 threads per CPU concurrent max)
+                                    Next
+                                    HS.CreateMessage("EVENT", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "RUN", EventName, RunActions.Substring(0, RunActions.Length - 2), "SYSTEM")
 
-                                ' Check to see if we are within the active times for the event, if not, skip to the next trigger
-                                If Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) > Date.Now Then Continue For
-                                If Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) < Date.Now Then Continue For
-
-                                Dim RunActions As String = "Actions: "
-                                Dim myEventActions() As DataRow = GetEventActionsInfo(EventName)                                    ' Get the actions associated with the event
-                                For Each EventAction As DataRow In myEventActions                                                   ' Loop through all the actions tagged to the event
-                                    Dim myActions() As DataRow = GetActionsInfo(CStr(EventAction.Item("ActionName")))
-                                    RunActions = RunActions + CStr(myActions(0).Item("ActionName")) + ", "                          ' Record the actions processed
-                                    System.Threading.ThreadPool.QueueUserWorkItem(AddressOf ProcessAction, myActions(0))            ' Multithreaded with threadpool (25 threads per CPU concurrent max)
-                                Next
-                                HS.CreateMessage("EVENT", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "RUN", EventName, RunActions.Substring(0, RunActions.Length - 2), "SYSTEM")
-
-                                ' When an event is active as the triggers have fired, update the event last fired & number of times fields in the DB
-                                Dim RowLocn As Integer = EventsDT.Rows.IndexOf(myEvent(0))
-                                SyncLock AccessDB
+                                    ' When an event is active as the triggers have fired, update the event last fired & number of times fields in the DB
+                                    Dim RowLocn As Integer = EventsDT.Rows.IndexOf(myEvent(0))
+                                    'SyncLock AccessDB
                                     If CBool(myEvent(0).Item("EventOneOff")) Then EventsDT(RowLocn).Item("EventActive") = False ' If the event is a single shot (one off), then disable the event so it is only run once
-                                    EventsDT(RowLocn).Item("EventLastFired") = Date.Now.Ticks
+                                    EventsDT(RowLocn).Item("EventLastFired") = Date.UtcNow.Ticks
                                     EventsDT(RowLocn).Item("EventNumRecur") = CInt(EventsDT(RowLocn).Item("EventNumRecur")) + 1
-                                End SyncLock
-                                UpdateAutoDB("UPD", "EVENTS", EventsDT(RowLocn))
+                                    'End SyncLock
+                                    UpdateAutoDB("UPD", "EVENTS", EventsDT(RowLocn))
 
+                                End If
                             End If
+                        Else
+                            WriteConsole(False, "WARNING - Inconsistency in automation DB, cannot find event action for trigger: " + CStr(TrigRow("TrigName")))
                         End If
-                    End If
-                Next
-            End If
-        Next
+                    Next
+                End If
+            Next
+        End SyncLock
+
         Return True
     End Function
 
@@ -698,6 +737,7 @@ Public Class Automation
 
             ' Process Scripts
             If CStr(ActionRow("ActionScript")) <> "" Then
+                WriteConsole(False, "Running script: " + CStr(ActionRow("ActionScript")) + "(" + CStr(ActionRow("ActionScriptParam")) + ")")
                 Dim ScriptResult As String = HS.RunScript(CStr(ActionRow("ActionScript")), CStr(ActionRow("ActionScriptParam"))) ' Run the script specified in the trigger
             End If
 
@@ -730,9 +770,10 @@ Public Class Automation
         ' Update Trigger Last fired field (different to event last fired)
         Dim RowLocn As Integer = TriggersDT.Rows.IndexOf(Trigger)
         If RowLocn = -1 Then Return False ' Can't locate the row to update
-        SyncLock AccessDB
-            TriggersDT(RowLocn).Item("TrigLastFired") = Date.Now.Ticks
-        End SyncLock
+        'SyncLock AccessDB
+        TriggersDT(RowLocn).Item("TrigLastFired") = Date.UtcNow.Ticks
+        'End SyncLock
+        'TODO: Put this on a separate thread
         UpdateAutoDB("UPD", "TRIGGERS", TriggersDT(RowLocn), RowLocn)
 
         Return True
@@ -740,7 +781,7 @@ Public Class Automation
 
     ' Run a script associated with the trigger, returning the result of the script
     Private Shared Function MatchScript(row As DataRow) As Boolean
-        If CStr(row("TrigScript")) <> "" Or CStr(row("TrigScriptData")) <> "" Then                      ' Don't process if there is no script entry or data
+        If CStr(row("TrigScript")) <> "" Then                      ' Don't process if there is no script entry
             Dim ScriptResult As String = ""
             ScriptResult = HS.RunScript(CStr(row("TrigScript")), CStr(row("TrigScriptParam")))  ' Run the script specified in the trigger with a parameter
             Return TestData(CInt(row("TrigScriptCond")), CStr(row("TrigScriptData")), ScriptResult)     ' Return true or false depending if the script results = the data field in the trigger for the script
@@ -753,16 +794,24 @@ Public Class Automation
     Private Shared Function MatchTime(row As DataRow) As Boolean
         MatchTime = False
 
-        ' If start or end date is set, then check the from date/time
-        If Date.FromBinary(CLng(row.Item("TrigDateFrom"))) <> HAConst.NULLDATE Then
-            If Date.FromBinary(CLng(row.Item("TrigDateFrom"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes) > Date.Now Then Exit Function ' Current time is before the 'from' Date/Time, so exit
+        Dim aa = Date.UtcNow
+        Dim xx = Date.FromBinary(CLng(row.Item("TrigDateFrom")))
+        Dim yy = Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes
+        Dim zz = Date.FromBinary(CLng(row.Item("TrigDateFrom"))).AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes)
+        Dim xxx = Date.FromBinary(CLng(row.Item("TrigDateTo")))
+        Dim yyy = Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes
+        Dim zzz = Date.FromBinary(CLng(row.Item("TrigDateTo"))).AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes)
+
+        ' TODO: Not reading from / to dates correctly as when converting to UTC we lose a day due to time difference (as time isn't added). So when just dealing with dates, don't use UTC. Need to adjust the below
+        If CLng(row.Item("TrigDateFrom")) <> 0 Then
+            If Date.FromBinary(CLng(row.Item("TrigDateFrom"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes) > Date.UtcNow Then Exit Function ' Current time is before the 'from' Date/Time, so exit
         Else    ' Start date not set, so check if the stop time is set and it is after the stop time, exit sub
-            If Date.FromBinary(CLng(row.Item("TrigTimeFrom"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes > Date.Now.TimeOfDay.TotalMinutes Then Exit Function
+            If CLng(row.Item("TrigTimeFrom")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes > Date.UtcNow.TimeOfDay.TotalMinutes Then Exit Function
         End If
-        If Date.FromBinary(CLng(row.Item("TrigDateTo"))) <> HAConst.NULLDATE Then
-            If Date.FromBinary(CLng(row.Item("TrigDateTo"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes) < Date.Now Then Exit Function ' Current time is after the 'to' Date/Time
+        If CLng(row.Item("TrigDateTo")) <> 0 Then
+            If Date.FromBinary(CLng(row.Item("TrigDateTo"))).Date.AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes) < Date.UtcNow Then Exit Function ' Current time is after the 'to' Date/Time
         Else    ' Stop date not set, so check if the stop time is set and it is after the stop time, exit sub
-            If Date.FromBinary(CLng(row.Item("TrigTimeTo"))) <> HAConst.NULLDATE And Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes < Date.Now.TimeOfDay.TotalMinutes Then Exit Function
+            If CLng(row.Item("TrigTimeTo")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes < Date.UtcNow.TimeOfDay.TotalMinutes Then Exit Function
         End If
 
         ' If a weekday is set and today is not the day, exit
@@ -798,6 +847,17 @@ Public Class Automation
         ' If sunrise/set is set and it is not sunrise/set, exit. Note IsSunrise/set is a duration (sunrise/set +- offset), if you want to do something based on a sunrise/set event, use the sunrise/set message event not IsSunrise/set
         If HS.IsSunrise = False And CBool(row("TrigSunrise")) = True Then Exit Function
         If HS.IsSunset = False And CBool(row("TrigSunset")) = True Then Exit Function
+
+        ' Check the time of day (only trigger once in the minute by checking last trig time)
+        Dim TrigTimeOfDay = CLng(row.Item("TrigTimeOfDay"))
+        If TrigTimeOfDay <> 0 Then
+            Dim TrigDate = Date.FromBinary(TrigTimeOfDay).ToLocalTime()
+            'WriteConsole(True, "time trigger enter " + CStr(row("TrigName")) + " " + Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute.ToString)
+            If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Hour <> Date.Now.Hour Then Exit Function
+            If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute <> Date.Now.Minute Then Exit Function
+            If CLng(row.Item("TrigLastFired")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Only trigger once per day
+            'WriteConsole(True, "time trigger found " + CStr(row("TrigName")))
+        End If
 
         MatchTime = True                                        ' Made it here, so the time trigger is valid
     End Function
@@ -924,16 +984,23 @@ Public Class Automation
         End Select
         If IsNothing(GetRow) Then Return Nothing
         For Each dr As DataRow In GetRow
-            Dim DictRow As Dictionary(Of String, Object) = dr.Table.Columns.Cast(Of DataColumn)().ToDictionary(Function(col) col.ColumnName, Function(col) dr.Field(Of Object)(col.ColumnName))
+            Dim DictRow As IDictionary(Of String, Object) = dr.Table.Columns.Cast(Of DataColumn)().ToDictionary(Function(col) col.ColumnName, Function(col) dr.Field(Of Object)(col.ColumnName))
             GetColl.Add(DictRow)
         Next
         Return GetColl
     End Function
 
+    ' All dates coming to the server must be in .NET binary date format UTC, so force UTC kind
+    Public Shared Function UTCKind(UTC As String) As DateTime
+        'Dim yy = Date.FromBinary(CLng(UTC))
+        'Dim xx = DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
+        Return DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
+    End Function
+
     Public Shared Function ProcessAddMsg(Table As String, Data As System.Collections.Generic.List(Of Object)) As String
 
         ' TODO: Categories are coming across as numbers but typed as strings
-        Dim DataArray As Dictionary(Of String, Object) = CType(Data(0), Dictionary(Of String, Object))
+        Dim DataArray As IDictionary(Of String, Object) = CType(Data(0), IDictionary(Of String, Object))
         Dim Result As String = ""
         Select Case Table.ToUpper
             Case Is = "TRIGGERS"
@@ -950,10 +1017,10 @@ Public Class Automation
                 TrigChgMessage.Instance = CStr(DataArray.Item("trigChgInstance"))
                 TrigChgMessage.Scope = CStr(DataArray.Item("trigChgScope"))
                 TrigChgMessage.Data = CStr(DataArray.Item("trigChgData"))
-                Result = AddNewTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))), _
-                                  CInt(CStr(DataArray.Item("trigStateCond"))), Date.FromBinary(CLng(CStr(DataArray.Item("trigFromDate")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigFromTime")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigToDate")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigToTime")))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")), _
-                                  CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")), _
-                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), CStr(DataArray.Item("trigTimeofDay")), TrigChgMessage, TrigStateMessage)
+                Result = AddNewTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))),
+                                  CInt(CStr(DataArray.Item("trigStateCond"))), UTCKind(CStr(DataArray.Item("trigFromDate"))), UTCKind(CStr(DataArray.Item("trigFromTime"))), UTCKind(CStr(DataArray.Item("trigToDate"))), UTCKind(CStr(DataArray.Item("trigToTime"))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")),
+                                  CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")),
+                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), UTCKind(CStr(DataArray.Item("trigTimeofDay"))), TrigChgMessage, TrigStateMessage)
             Case Is = "ACTIONS"
                 Dim ActionMessage As Structures.HAMessageStruc
                 ActionMessage.Network = CByte(DataArray.Item("actionNetwork"))
@@ -995,7 +1062,7 @@ Public Class Automation
 
     Public Shared Function ProcessUpdMsg(Table As String, Data As System.Collections.Generic.List(Of Object)) As String
         Dim Result As String = ""
-        Dim DataArray As Dictionary(Of String, Object) = CType(Data(0), Dictionary(Of String, Object))
+        Dim DataArray As IDictionary(Of String, Object) = CType(Data(0), IDictionary(Of String, Object))
         Select Case Table.ToUpper
             Case Is = "TRIGGERS"
                 Dim TrigChgMessage, TrigStateMessage As Structures.HAMessageStruc
@@ -1011,10 +1078,10 @@ Public Class Automation
                 TrigChgMessage.Instance = CStr(DataArray.Item("trigChgInstance"))
                 TrigChgMessage.Scope = CStr(DataArray.Item("trigChgScope"))
                 TrigChgMessage.Data = CStr(DataArray.Item("trigChgData"))
-                Result = UpdateTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))), _
-                                  CInt(CStr(DataArray.Item("trigStateCond"))), Date.FromBinary(CLng(CStr(DataArray.Item("trigFromDate")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigFromTime")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigToDate")))), Date.FromBinary(CLng(CStr(DataArray.Item("trigToTime")))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")), _
-                                  CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")), _
-                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), CStr(DataArray.Item("trigTimeofDay")), TrigChgMessage, TrigStateMessage)
+                Result = UpdateTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))),
+                                  CInt(CStr(DataArray.Item("trigStateCond"))), UTCKind(CStr(DataArray.Item("trigFromDate"))), UTCKind(CStr(DataArray.Item("trigFromTime"))), UTCKind(CStr(DataArray.Item("trigToDate"))), UTCKind(CStr(DataArray.Item("trigToTime"))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")),
+                                  CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")),
+                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), UTCKind(CStr(DataArray.Item("trigTimeofDay"))), TrigChgMessage, TrigStateMessage)
             Case Is = "ACTIONS"
                 Dim ActionMessage As Structures.HAMessageStruc
                 ActionMessage.Network = CByte(DataArray.Item("actionNetwork"))
@@ -1099,7 +1166,7 @@ Public Class Automation
                 NewRow.Item("EventOneOff") = OneShot
                 NewRow.Item("EventStart") = StartDate.Ticks
                 NewRow.Item("EventStop") = StopDate.Ticks
-                NewRow.Item("EventLastFired") = CDate(HAConst.NULLDATE).Ticks
+                NewRow.Item("EventLastFired") = 0
                 NewRow.Item("EventNumRecur") = 0
                 UpdateAutoDB("ADD", "EVENTS", NewRow)
 
@@ -1160,10 +1227,10 @@ Public Class Automation
     End Function
 
     ' Update the automation database with a new trigger item
-    Public Shared Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer, _
-                                 StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean, _
-                                 Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, _
-                                 Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As String, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+    Public Shared Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
+                                 StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
+                                 Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean,
+                                 Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
         If TriggerName <> "" Then
             If GetTriggersInfo(TriggerName).Length > 0 Then
                 Return "The entry '" + TriggerName + "' already exists"
@@ -1209,8 +1276,8 @@ Public Class Automation
                 NewRow.Item("TrigSun") = Sun
                 NewRow.Item("TrigActive") = Active
                 NewRow.Item("TrigInactive") = Inactive
-                NewRow.Item("TrigTimeofDay") = TimeofDay
-                NewRow.Item("TrigLastFired") = HAConst.NULLDATE.Ticks
+                NewRow.Item("TrigTimeofDay") = TimeofDay.Ticks
+                NewRow.Item("TrigLastFired") = 0
                 UpdateAutoDB("ADD", "TRIGGERS", NewRow)
                 HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "TRIGGERS", "ADDED", TriggerName, "SYSTEM")
             End If
@@ -1400,10 +1467,10 @@ Public Class Automation
     End Function
 
     ' Update the trigger DB
-    Public Shared Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer, _
-                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean, _
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, _
-                              Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As String, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+    Public Shared Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
+                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean,
+                              Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
         If TriggerName <> "" Then
             Dim TriggerRows As DataRow() = GetTriggersInfo(TriggerName)
             If TriggerRows.Count = 1 Then                                                           ' Should only be 1 record
@@ -1449,7 +1516,8 @@ Public Class Automation
                     TriggersDT(RowLocn).Item("TrigSun") = Sun
                     TriggersDT(RowLocn).Item("TrigActive") = Active
                     TriggersDT(RowLocn).Item("TrigInactive") = Inactive
-                    TriggersDT(RowLocn).Item("TrigTimeofDay") = TimeofDay
+                    TriggersDT(RowLocn).Item("TrigTimeofDay") = TimeofDay.Ticks
+                    TriggersDT(RowLocn).Item("TrigLastFired") = 0                  ' Trigger adjusted, so clear last fired field.
                 End SyncLock
                 UpdateAutoDB("UPD", "TRIGGERS", TriggersDT(RowLocn))
 

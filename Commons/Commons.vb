@@ -1,5 +1,7 @@
 ﻿' Declare the common interfaces and structures used between the Server host and plugins
 
+Imports fastJSON
+
 Namespace Plugins
     ' Plugin methods the host can call
     Public Interface IHAPlugin
@@ -40,8 +42,11 @@ Namespace Structures
         Public Type As String
         Public Status As String
         Public Channels As List(Of Structures.ChannelStruc)
+        <JsonInclude(False)>
         Public NodeRef As String
+        <JsonInclude(False)>
         Public lastMsg As HAMessageStruc                    ' Used to avoid sending back the same message to the plugin
+        <JsonInclude(False)>
         Public AssRef As Plugins.IHAPlugin                 ' Pointer to the plugin
     End Structure
 
@@ -92,8 +97,7 @@ End Class
 ' Global constants for all classes to share
 Public Class HAConst
 
-    Public Shared ReadOnly NULLDATE As DateTime = New DateTime(2000, 1, 1).ToUniversalTime      ' This date is used to represent null or inactive date (and based on installed culture)
-
+    'Public Shared ReadOnly NULLDATE As DateTime = New DateTime(0)                  
     Public Shared ReadOnly unixEpoc As Long = 621355968000000000
     Public Shared ReadOnly pcTicks As Long = 10000
 

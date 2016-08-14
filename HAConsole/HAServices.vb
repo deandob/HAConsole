@@ -5,6 +5,7 @@ Imports Commons                 ' Common interfaces and structures for HA Server
 
 ' CLR namespaces
 Imports System.IO
+Imports System.Text
 Imports System.Reflection
 'Imports System.Net.WebSockets
 Imports System.Threading
@@ -13,6 +14,7 @@ Imports System.Security
 Imports System.Collections.Concurrent
 Imports HAConsole.HAUtils
 Imports fastJSON
+Imports System.Text.RegularExpressions
 
 Namespace HAServices
 
@@ -40,6 +42,8 @@ Namespace HAServices
         Private OldTime As Date = DateTime.Now                            ' Used by the timer to see if minutes, hours, days etc. have gone past
 
         Private AllMessages As New Structures.HAMessageStruc                    ' No message, used for processing triggers (returns true when testing for event messages) to ignore message checks when testing for time based triggers
+
+        Public Shared ClientLogs As String = ""                                ' Global used to send console logs to clients
 
         Private ServiceState As Integer = HAConst.ServiceState.PAUSE    ' Server state variable, initially paused (taking messages but not processing)
 
@@ -167,9 +171,15 @@ Namespace HAServices
         End Sub
 
         Private Function LoadNodePlugins() As Boolean
-            'Dim NodeInfo As ProcessStartInfo = New ProcessStartInfo("node.exe")
-            NodeProc.StartInfo.FileName = "node.exe"
-            NodeProc.StartInfo.Arguments = "plugmgr.js"
+            Dim oldNodeProc As New List(Of Process)
+            For Each process As Process In Process.GetProcesses()
+                If process.ProcessName.Contains("node") Then
+                    WriteConsole(True, "Node.JS already running, killing...")
+                    process.Kill()
+                End If
+            Next
+            NodeProc.StartInfo.FileName = "nodebat.bat"
+            NodeProc.StartInfo.Arguments = "plugmgr.js " + DebugMode.ToString()
             NodeProc.StartInfo.WorkingDirectory = "..\..\..\..\pluginMgr\pluginMgr"
             NodeProc.EnableRaisingEvents = True
             WriteConsole(True, "Starting Node.JS pluginMgr...")
@@ -182,7 +192,7 @@ Namespace HAServices
             WriteConsole(True, "Node.JS console exited.")
             If NodeProc.ExitCode > 0 Then                                    ' Don't capture normal termination
                 WriteConsole(True, "WARNING: Node process aborted (error code " + NodeProc.ExitCode.ToString() + "). Restarting")
-                System.Threading.Thread.Sleep(30000)
+                System.Threading.Thread.Sleep(10000)
                 If NodeProc.ExitCode = 99 Then
                     System.Diagnostics.Process.Start("shutdown.exe", "-r -f -t 0")  ' reboot
                 Else
@@ -361,6 +371,7 @@ Namespace HAServices
         ' THREAD: Process all the DB actions on the DB action message queue. Use a message queue to ensure single thread access to the database
         Private Sub ProcessDBActions()
             Try
+                Dim rx As New Regex("[^\u0020-\u007F]")
                 For Each DBMsg As Structures.HAMessageStruc In DBActionBQ.GetConsumingEnumerable
                     Try
                         Do While PauseDB = True                                     ' If the DB is paused wait until it is free before processing more actions for DB
@@ -393,7 +404,11 @@ Namespace HAServices
                                 SQLCmd = CType(LogConn.Item(GetCatNum(DBMsg.Category) - 1), SQLite.SQLiteConnection).CreateCommand
                                 'MsgBox(Date.UtcNow.ToString + " (" + Date.UtcNow.ToBinary.ToString + " " + Date.UtcNow.Ticks.ToString + "  --- " + New Date(DBMsg.Time.Ticks).ToString + " + " + DBMsg.Time.Ticks.ToString + " " + DBMsg.Time.ToBinary.ToString)
                                 'SQLCmd.CommandText = "INSERT INTO MessLog (time, func, level, network, category, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", " + DBMsg.Func.ToString + ", " + DBMsg.Level.ToString + ", " + DBMsg.Network.ToString + ", " + GetCatNum(DBMsg.Category).ToString + ", '" + DBMsg.ClassName + "', '" + DBMsg.Instance + "', '" + DBMsg.Scope + "', '" + DBMsg.Data + "')"
+
+                                ' TODO: For class, scope, instance only accept letters and numbers (a \ will cause a crash)                             
                                 SQLCmd.CommandText = "INSERT INTO MessLog (time, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", '" + DBMsg.ClassName + "', '" + DBMsg.Instance + "', '" + DBMsg.Scope + "', '" + DBMsg.Data + "')"
+                                'SQLCmd.CommandText = "INSERT INTO MessLog (time, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.ClassName)) + "', '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.Instance)) + "', '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.Scope)) + "', '" + Encoding.ASCII.GetString(Encoding.ASCII.GetBytes(DBMsg.Data)) + "')"       ' Strip any non ASCII characters that can cause a crash
+                                'SQLCmd.CommandText = "INSERT INTO MessLog (time, class, instance, scope, data) VALUES (" + Date.UtcNow.Ticks.ToString + ", '" + StripStr(DBMsg.ClassName) + "', '" + StripStr(DBMsg.Instance) + "', '" + StripStr(DBMsg.Scope) + "', '" + StripStr(DBMsg.Data) + "')"
                                 SQLCmd.ExecuteNonQuery()
                             End If
                         End SyncLock
@@ -426,12 +441,12 @@ Namespace HAServices
         End Function
 
         ' Extract records from the logs database
-        Public Function GetLogs(cols As String, filter As String, CatNum As Integer) As DataRow()
+        Public Function GetLogs(cols As String, filter As String, CatNum As Integer, OrderLimit As String) As DataRow()
             If cols = "" Then cols = "*"
             SyncLock DBLock
                 SQLCmd = CType(LogConn.Item(CatNum), SQLite.SQLiteConnection).CreateCommand         ' Select appropriate catalog log file
                 PauseDB = True              ' Stop processing logs, keep them in the queue
-                SQLCmd.CommandText = "SELECT " + cols.ToUpper + " FROM MessLog WHERE " + filter + " ORDER BY TIME ASC"  ' sort by time ASC / DESC
+                SQLCmd.CommandText = "SELECT " + cols.ToUpper + " FROM MessLog WHERE " + filter + " ORDER BY " + OrderLimit  ' sort by time ASC / DESC
                 Dim dt As DataTable = New DataTable()
                 Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
                 da.SelectCommand = SQLCmd
@@ -494,6 +509,19 @@ Namespace HAServices
                                     Case Is = "HISTORY"
                                         Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = ProcessGetHistory(myMessage.Scope, CLng(myMessage.Data.Split(","c)(0)), CLng(myMessage.Data.Split(","c)(1)))      ' Send message back to client with data in datatable
                                         HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
+                                    Case Is = "CONSOLE"
+                                        Select Case myMessage.Data.ToUpper
+                                            Case Is = "START"
+                                                ClientLogs = myMessage.Instance.ToUpper                 ' Global used when writing console logs to send to client named
+                                            Case Is = "STOP"
+                                                ClientLogs = ""
+                                            Case Is = "START DEBUG"
+                                                If ClientLogs <> "" Then HAConsole.DebugMode = True
+                                            Case Is = "STOP DEBUG"
+                                                If ClientLogs <> "" Then HAConsole.DebugMode = False
+                                            Case Is = "STATESTORE"
+                                                If ClientLogs <> "" Then HAConsole.ListStateStore()
+                                        End Select
                                     Case Is = "SETTINGS"
                                         Dim myParams As String() = ParseCmd(myMessage.Scope)
                                         If myParams IsNot Nothing Then
@@ -565,9 +593,9 @@ Namespace HAServices
                                                         End If
                                                     End If
                                                 Case Is = "ADD"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessAddMsg(myParams(1), CType(fastJSON.JSON.Instance.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
+                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessAddMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
                                                 Case Is = "UPD"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessUpdMsg(myParams(1), CType(fastJSON.JSON.Instance.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
+                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessUpdMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
                                                 Case Is = "DEL"
                                                     HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessDelMsg(myParams(1), myMessage.Data))
                                             End Select
@@ -601,7 +629,7 @@ Namespace HAServices
                                 Case Is = "HOUR"
                                     ProcessHourChange()
                                 Case Is = "MINUTE"
-                                    ProcessMinuteChange()
+                                    ProcessMinuteChange(myMessage)
                                 Case Is = "SECOND"
                                     ProcessSecondChange()
                                 Case Is = "TICK"
@@ -617,8 +645,16 @@ Namespace HAServices
         End Sub
 
         Private Function SendChannelNames(user As String, clientMessage As Structures.HAMessageStruc) As Boolean
-            fastJSON.JSON.Instance.Parameters.UseExtensions = False
-            Dim JSONChannels As String = fastJSON.JSON.Instance.ToJSON(Plugins)
+            'Dim PlugChs As New Dictionary(Of String, Structures.PlugStruc)
+            'Dim tempPlug As New Structures.PlugStruc
+            'For Each Plugin As KeyValuePair(Of String, Structures.PlugStruc) In Plugins
+            ' tempPlug.Category = Plugin.Value.Category
+            ' tempPlug.ClassName = Plugin.Value.ClassName
+            ' tempPlug.Channels = Plugin.Value.Channels
+            ' PlugChs.Add(Plugin.Key, tempPlug)
+            ' Next
+            Dim JSONChannels As String = fastJSON.JSON.ToJSON(Plugins)
+            'Dim JSONChannels As String = fastJSON.JSON.ToJSON(PlugChs)          ' Temporary object as JSON serialisation can't deal with references inside object
             HomeNet.SendClient(user, HAConst.MessFunc.RESPONSE, clientMessage, JSONChannels)
         End Function
 
@@ -632,9 +668,9 @@ Namespace HAServices
                 Case Is = "WIDGETS"
                     SearchExts = {"*.svg", "*.html"}
                 Case Is = "SCRIPTS"
-                    SearchExts = {"*.vb", "*.csharp"}
+                    SearchExts = {"*.vb", "*.cs", "*.scr"}
                 Case Is = "PLUGINS"
-                    SearchExts = {"*.vb", "*.csharp"}
+                    SearchExts = {"*.vb", "*.cs"}
             End Select
             If di.Exists Then
                 For Each ext As String In SearchExts
@@ -652,35 +688,40 @@ Namespace HAServices
 
         ' Called by client for bulk subscribe to channels & return all relevant initial cached state information
         Private Function IniSubscribe(user As String, clientMessage As Structures.HAMessageStruc) As Boolean
+            Try
+                Dim SubChs() As String = clientMessage.Data.Split(","c)             ' Extract channel subscription requests delimited by commas
+                Dim ClassInst() As String
+                Dim FoundKeys As IDictionary(Of Structures.StateStoreKey, String)
+                Dim channelList As New Dictionary(Of String, String)                ' response format in list of (scope:data)
 
-            Dim SubChs() As String = clientMessage.Data.Split(","c)             ' Extract channel subscription requests delimited by commas
-            Dim ClassInst() As String
-            Dim FoundKeys As Dictionary(Of Structures.StateStoreKey, String)
-            Dim channelList As New Dictionary(Of String, String)                ' response format in list of (scope:data)
+                Dim ChState As Structures.HAMessageStruc
+                ChState.Network = GetNetNum(myNetName)
+                ChState.Category = clientMessage.Category
+                ChState.ClassName = clientMessage.ClassName
+                ChState.Instance = clientMessage.Instance
+                ChState.Scope = ""    ' All
 
-            Dim ChState As Structures.HAMessageStruc
-            ChState.Network = GetNetNum(myNetName)
-            ChState.Category = clientMessage.Category
-            ChState.ClassName = clientMessage.ClassName
-            ChState.Instance = clientMessage.Instance
-            ChState.Scope = ""    ' All
+                For Each SubCh In SubChs                                            ' Search statestore for all relevant information for the instance
+                    ClassInst = SubCh.Split("/"c)                                   ' category\class\instance = category\plugin\channel
+                    If SubCh <> "" Then
+                        If Not HomeNet.HAClients(user).Subscribed.Contains(SubCh) Then HomeNet.HAClients(user).Subscribed.Add(SubCh) ' Only 1 unique channel subscription per client
+                        ChState.Category = ClassInst(0)                             ' Get the latest state info for the INI response
+                        ChState.ClassName = ClassInst(1)
+                        ChState.Instance = ClassInst(2)
+                        FoundKeys = SearchStoreStates(ChState)                      ' Find all the cached state information for the plugin instance
+                        For Each kvp In FoundKeys
+                            If kvp.Key.Scope.Substring(0, 1) <> "_" Then channelList(SubCh) = kvp.Key.Scope + ":" + kvp.Value ' ignore system messages starting with _
+                        Next
+                    End If
+                Next
 
-            For Each SubCh In SubChs                                            ' Search statestore for all relevant information for the instance
-                ClassInst = SubCh.Split("/"c)                                   ' category\class\instance = category\plugin\channel
-                If SubCh <> "" Then
-                    If Not HomeNet.HAClients(user).Subscribed.Contains(SubCh) Then HomeNet.HAClients(user).Subscribed.Add(SubCh) ' Only 1 unique channel subscription per client
-                    ChState.Category = ClassInst(0)                             ' Get the latest state info for the INI response
-                    ChState.ClassName = ClassInst(1)
-                    ChState.Instance = ClassInst(2)
-                    FoundKeys = SearchStoreStates(ChState)                      ' Find all the cached state information for the plugin instance
-                    For Each kvp In FoundKeys
-                        If kvp.Key.Scope.Substring(0, 1) <> "_" Then channelList(SubCh) = kvp.Key.Scope + ":" + kvp.Value ' ignore system messages starting with _
-                    Next
-                End If
-            Next
+                Return HomeNet.SendClient(clientMessage.Instance, HAConst.MessFunc.RESPONSE, clientMessage, channelList)
 
-            Return HomeNet.SendClient(clientMessage.Instance, HAConst.MessFunc.RESPONSE, clientMessage, channelList)
 
+            Catch ex As Exception
+                Dim t = 1
+
+            End Try
         End Function
 
         Private Function SendtoSubscribers(myMessage As Structures.HAMessageStruc) As Boolean
@@ -721,6 +762,9 @@ Namespace HAServices
                     Return GlobalVars.NetworkColl.ToArray
                 Case Is = "INI"
                     Return GetIniSettings(Data)
+                Case Is = "VALUE"
+                    Dim DataSplit = Data.Split("/"c)
+                    Return GetStoreState(New Structures.HAMessageStruc With {.Network = GlobalVars.myNetNum, .Category = DataSplit(0), .ClassName = DataSplit(1), .Instance = DataSplit(2), .Scope = DataSplit(3)}).ToArray
             End Select
             Return DummyArray                             ' Nothing selected
         End Function
@@ -736,17 +780,21 @@ Namespace HAServices
             Dim FinishTime As Long = HAUtils.FromJSTIme(finish)
             'Dim CondStr As String = "CATEGORY=" + CStr(GetCatNum(ChSplit(0))) + " AND CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
             Dim CondStr As String = "CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
-            Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1)
+            Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1, "TIME DESC")
             Dim GetColl As New List(Of Object)
             If IsNothing(getRows) Then Return Nothing
 
-            For rowNum = 0 To getRows.Length - 1
-                If rowNum <> 0 And rowNum <> (getRows.Length - 1) Then              'only add if the previous or next record is different to compress dataset
-                    If getRows(rowNum)(1).ToString() <> getRows(rowNum - 1)(1).ToString() Or getRows(rowNum)(1).ToString() <> getRows(rowNum + 1)(1).ToString() Then GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-                Else
-                    GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-                End If
+            ' Can't compress dataset as time will be unique for each record
+            For Each rowNum In getRows
+                GetColl.Add(rowNum(0).ToString() + "," + rowNum(1).ToString())
             Next
+            'For rowNum = 0 To getRows.Length - 1
+            'If rowNum <> 0 And rowNum <> (getRows.Length - 1) Then              'only add if the previous or next record is different to compress dataset
+            'If getRows(rowNum)(1).ToString() <> getRows(rowNum - 1)(1).ToString() Or getRows(rowNum)(1).ToString() <> getRows(rowNum + 1)(1).ToString() Then GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
+            'Else
+            'GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
+            'End If
+            'Next
             'Dim record, oldY As String
             'For Each dr As DataRow In getRows
             '    record = dr(0).ToString + "," + dr(1).ToString
@@ -821,9 +869,9 @@ Namespace HAServices
         End Sub
 
         ' Process system actions that happen on the change of a minute
-        Private Sub ProcessMinuteChange()
+        Private Sub ProcessMinuteChange(myMessage As Structures.HAMessageStruc)
             SetTimeOfDay()                                                              ' Set the flags to indicate what time of day it is (varies based on sunrise, sunset times)
-            Automation.AutomationEvents(AllMessages)                                    ' Each minute check if any of the timer triggers are activated (pass a dummy message so that no event triggers are fired)
+            Automation.AutomationEvents(myMessage)                                    ' Each minute check if any of the timer triggers are activated
         End Sub
 
         ' Process system actions that happen on the change of a second
@@ -958,7 +1006,7 @@ Namespace HAServices
             Dim ResultStr As String = "OK"
             If PluginsStarted Then
                 Try
-                    Dim HAMessage As Structures.HAMessageStruc = fastJSON.JSON.Instance.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr)
+                    Dim HAMessage As Structures.HAMessageStruc = fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr)
                     Dim PlugMsg As Structures.HAMessageStruc = HS.CreateMessage(HAMessage.ClassName, HAMessage.Func, HAMessage.Level, HAMessage.Instance, HAMessage.Scope, HAMessage.Data, HAMessage.Category, HAMessage.Network)      ' Pass onto Msgqueue for processing
                     SaveLastMsg(PlugMsg)     ' Save in plugin array for checking when sending back to plugin to avoid message echo
                     'SubmitMessage(JSON.Instance.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr))                ' Place the event on the message bus for processing
@@ -966,7 +1014,7 @@ Namespace HAServices
                     ResultStr = ex.ToString
                 End Try
             Else
-                iniMsgs.Add(RecvJsonStr)
+                IniMsgs.Add(RecvJsonStr)
             End If
             Return ResultStr
         End Function
@@ -1136,7 +1184,7 @@ Namespace HAServices
                 If Plugins.ContainsKey(myMessage.Category + "/" + myMessage.ClassName) Then
                     If Plugins(myMessage.Category + "/" + myMessage.ClassName).lastMsg.GUID = myMessage.GUID Then Return "Rejected echo message"
                 End If
-                Dim MessageStr As String = fastJSON.JSON.Instance.ToJSON(myMessage)
+                Dim MessageStr As String = fastJSON.JSON.ToJSON(myMessage)
                 If Plugins.TryGetValue(myMessage.Category.ToUpper + "/" + myMessage.ClassName.ToUpper, checkPlug) Then      ' Is message for a plugin? Not all messages are for plugins
                     If checkPlug.Type = "DOTNET" Then
                         ResultStr = Plugins(myMessage.Category.ToUpper + "/" + myMessage.ClassName).AssRef.HostEvent(MessageStr) ' Send the message back to the DotNet plugin
@@ -1147,15 +1195,6 @@ Namespace HAServices
                         WriteConsole(False, "Msg sent to nodejs plugin: " + myMessage.Instance + " Data: " + myMessage.Data)
                     End If
                 End If
-
-                'Next
-                'For Each Plugin In Plugins
-                '    If Plugin.Category.ToUpper = myMessage.Category.ToUpper And Plugin.ClassName.ToUpper = myMessage.ClassName.ToUpper Then
-                '        If Plugin.Type = "DOTNET" Then ResultStr = Plugin.AssRef.HostEvent(MessageStr) ' Send the message back to the DotNet plugin
-                '        If Plugin.Type = "NODEJS" Then ResultStr = HomeNet.SendPlugin(MessageStr) ' Send the message back to the NODEJS plugin
-                '        WriteConsole(False, "Msg sent to plugin: " + myMessage.Instance + " Data: " + myMessage.Data)
-                '    End If
-                'Next
             Catch ex As Exception
                 ResultStr = ex.ToString         ' XXXXXXXXXXXXXXXXXXXXXXXXXXX
             End Try
@@ -1194,14 +1233,14 @@ Namespace HAServices
         Public Function DeleteEvent(EventName As String) As String
             Return Automation.DeleteEvent(EventName)
         End Function
-        Public Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer, _
-                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean, _
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As String, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+        Public Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
+                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
             Return Automation.AddNewTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, TrigChgMessage, TrigStateMessage)
         End Function
-        Public Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer, _
-                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean, _
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As String, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+        Public Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
+                              StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
             Return Automation.UpdateTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, TrigChgMessage, TrigStateMessage)
         End Function
         Public Function DeleteTrigger(TriggerName As String) As String
