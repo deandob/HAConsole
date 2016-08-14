@@ -60,6 +60,7 @@ Namespace HAServices
         Public Ini As IniFile                                       ' Ini file management
         Public ClientIni As IniFile
         Private HAScripts As HAUtils.Scripting                                          ' Object that keeps the context of all the scripts in the script directory
+        Public ISlinux As Boolean                                   ' Linux or Windows
 
         ' Read only static properties loaded from the ini file
         'Property LogFile As String                                          ' File name and location of console logs (table name = file name)
@@ -97,6 +98,10 @@ Namespace HAServices
         Public Sub Init()
             Try
                 WriteConsole(True, "Starting automation services...")
+
+                Dim Platform As PlatformID = Environment.OSVersion.Platform
+                ISlinux = (Platform = 4) Or (Platform = 6) Or (Platform = 128)
+
                 Ini = New IniFile("settings")                                                           ' Open and cache the ini file settings (filename: settings.ini, in the same directory as the .exe)
                 ClientIni = New IniFile("clients")
                 ClientLocn = ClientIni.Get("general", "FileLocn", "")
