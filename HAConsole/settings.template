@@ -1,0 +1,102 @@
+; Settings file for the home automation server
+[Console]
+; tick event in msec, smallest quantum for time events
+TimerTick = 333
+; Use any of the .NET time/date formats - formatting not implemented in this version
+TimeFormat = HH:mm:ss.fff
+DateFormat = dd/MM/yy ddd
+WidthCol1 = 50
+WidthCol2 = 100
+WidthCol3 = 100
+WidthCol4 = 100
+WidthCol5 = 100
+WidthCol6 = 100
+WidthCol7 = 100
+WidthCol8 = 100
+WidthCol9 = 100
+WidthCol10 = 100
+WidthCol11 = 100
+WidthCol12 = 100
+WidthCol13 = 100
+ViewLogFrom = 4
+
+; Console log filter options not implemented in this version
+[Filter]
+FilterOptionsErr = True
+FilterOptionsEvent = True
+FilterOptionsMsg = True
+FilterLevel = 3
+DateTimeFilter = 
+CategoryFilter = 
+NetworkFilter = 
+ClassFilter = 
+InstanceFilter = 
+ScopeFilter = 
+DataFilter = 
+ViewLogFrom = 0
+Archive = 
+
+; Message categories. Edit or add as needed
+[Categories]
+Cat0 = WEATHER
+Cat1 = POWER
+Cat2 = SECURITY
+Cat3 = MULTIMEDIA
+Cat4 = HVAC
+Cat5 = GARDEN
+Cat6 = LIGHTING
+Cat7 = UTILITIES
+Cat8 = GENERAL
+
+; Icons to associate with the categories. To view available icons & names, use design mode toolbox option on client toolbar.
+[CatIcons]
+Weather = lightning-4
+Power = lightning
+Security = lightning
+Multimedia = tv
+HVAC = sun-stroke
+Garden = quill
+Lighting = lightbulb-2
+Utilities = phone
+General = notebook
+
+; General DB options, usually no need to change
+[Database]
+; Name of time-series message log for each category
+MessLogName = MessLog
+; Name of automation (transformation & rules) database
+AutomationName = automation
+Archive = Yearly
+; Only change if changing location of database files (use absolute path) else leave blank for default HAData directory in user home directory
+DBPath =
+
+[Scripts]
+; Only change if changing location of script files (use absolute path) else defaults to Scripts directory
+ScriptPath = 
+
+[NodePluginMgr]
+; Location of node.js plugin manager files, only change if changing location of Node plugin manager (use absolute path) else defaults to PluginMgr directory
+NodePluginMgrLocn = 
+
+[Server]
+; Name of network (usually house address where hub is located)
+NetworkName = My Home 
+; websockets port. 
+WSPort = 1066
+
+[Networks]
+; Network names for message routing. If only 1 hub, use the same name as NetworkName in the Server section
+Network0 = My Home
+
+[System]
+LinuxClusterSize = 1024
+WindowsClusterSize = 4096
+; Change these to your home city location, used for sunrise/sunset calculations.
+Longitude = -153,1
+Latitude = -27,28
+; Manual lookup of Long/Lat by city name
+URLFindLongLat = http://www.getty.edu/research/tools/vocabularies/tgn
+; Automatic lookup by IP address, returns XML, only useful if your home IP address allocated by the ISP is connected to the internet in your home city, not tunnelled to somewhere else.
+URLGetLongLat = http://www.geobytes.com/IpLocator.htm?GetLocation&Template=XML.txt
+; minutes to offset sunrise & sunset and transition to night or day
+SunriseSetOffset = 22
