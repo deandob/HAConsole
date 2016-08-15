@@ -102,6 +102,8 @@ Namespace HAServices
         Public Const WEB_CLIENT_DIR_NAME As String = "HAWebClient"           ' Relative to exe location
         Public Const NODEJS_DIR_NAME As String = "PluginMgr"                 ' Relative to exe location
 
+        'TODO: Archiving
+
 #Region "Initialization"
 
         Public Sub Init()
@@ -288,8 +290,6 @@ Namespace HAServices
         ' Data adaptor fill is initially pretty slow, takes about 10 seconds to load 1M records on a fast machine with a SSD. About 400MB RAM for 1M records
         Private Sub InitLogDB()
             Try
-                'Dim LogConn(GlobalVars.CategoryColl.Count - 1) As SQLite.SQLiteConnection
-                'Dim Lp As Integer
                 For Lp = 0 To GlobalVars.CategoryColl.Count - 2             ' ignore ALL category
                     Dim myLogConn As New SQLite.SQLiteConnection
                     myLogConn.ConnectionString = "Data Source=" + Path.Combine(DBLocn, CType(GlobalVars.CategoryColl.Item(Lp + 1), Structures.CatStruc).Cat.ToString) + LOG_EXT + ";"
@@ -313,37 +313,6 @@ Namespace HAServices
                     LogConn.Add(myLogConn)
                 Next
 
-                'LogConn = New SQLite.SQLiteConnection
-
-                'LogConn.ConnectionString = "Data Source=" + DBLocn + "\" + LogFile + LOG_EXT + ";"
-                'If Not File.Exists(DBLocn + "\" + LogFile + LOG_EXT) Then                    ' If no log file exists then create it
-                ' LogConn.Open()                                              ' Creates datafile if one does not exist (so has to execute after we check for data file existence)
-                'SQLCmd = LogConn.CreateCommand
-                'If Environment.OSVersion.Platform = PlatformID.Win32NT Then             ' Tune the file size for the operating system (can set this in the ini file)
-                'SQLCmd.CommandText = "PRAGMA page_size=" + Ini.Get("System", "WindowsClusterSize", "4096") + ";"          ' Windows
-                'Else
-                'SQLCmd.CommandText = "PRAGMA page_size=" + Ini.Get("System", "LinuxClusterSize", "1024") + ";"          ' Linux
-                'End If
-                'SQLCmd.ExecuteNonQuery()
-                'SQLCmd.CommandText = "CREATE TABLE " + LogFile + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, TIME INTEGER, FUNC INTEGER, LEVEL INTEGER, NETWORK INTEGER, CATEGORY INTEGER, CLASS TEXT COLLATE NOCASE, INSTANCE TEXT COLLATE NOCASE, SCOPE TEXT COLLATE NOCASE, DATA TEXT COLLATE NOCASE);"
-                'SQLCmd.ExecuteNonQuery()
-                'Else
-                'LogConn.Open()                                              ' Open existing log
-                'SQLCmd = LogConn.CreateCommand
-                'End If
-
-                'Dim xxLogConn As New SQLite.SQLiteConnection
-                'xxLogConn.ConnectionString = "Data Source=" + DBLocn + "\MessLog" + LOG_EXT + ";"
-                'xxLogConn.Open()                                              ' Creates datafile if one does not exist (so has to execute after we check for data file existence)
-                'SQLCmd = xxLogConn.CreateCommand
-                'Dim dt As DataTable = New DataTable()
-                'Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
-                'Dim xx = 2
-                'SQLCmd.CommandText = "SELECT * FROM MESSLOG WHERE CATEGORY=" + (xx + 1).ToString
-                'da.SelectCommand = SQLCmd
-                'dt.BeginLoadData()
-                'da.Fill(dt)                                     ' Load the datatable with the result of the query
-                'dt.EndLoadData()
 
                 'SQLCmd.CommandText = "CREATE TABLE MESSLOG (ID INTEGER PRIMARY KEY AUTOINCREMENT, TIME INTEGER, FUNC INTEGER, LEVEL INTEGER, CLASS TEXT COLLATE NOCASE, INSTANCE TEXT COLLATE NOCASE, SCOPE TEXT COLLATE NOCASE, DATA TEXT COLLATE NOCASE);"
                 'Dim transaction = CType(LogConn.Item(xx), SQLite.SQLiteConnection).BeginTransaction()
