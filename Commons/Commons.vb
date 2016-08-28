@@ -146,6 +146,8 @@ Public Class HAConst
         GREATER_THAN = 1
         LESS_THAN = 2
         NOT_EQUAL = 3
+        CONTAINS = 4
+        CHANGE = 5
     End Enum
 
     ' Misc types

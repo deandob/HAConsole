@@ -119,7 +119,11 @@ Public Class Automation
         FuncsDA.SelectCommand = FuncsSQLCmd
         FuncsDA.Fill(FuncsDT)
 
-        LoadTransformChs()                                            ' Load transforms channels and history
+        Dim HistoryThread As New Threading.Thread(AddressOf LoadTransformChs)
+        HistoryThread.IsBackground = True
+        HistoryThread.Start()
+
+        'LoadTransformChs()                                            ' Load transforms channels and history
 
     End Sub
 #End Region
@@ -432,7 +436,7 @@ Public Class Automation
 
     'TODO: Call this when any transform is modified, else you need to restart server
 
-    ' Add dynamic channels for all transforms
+    ' THREAD: Add dynamic channels for all transforms
     Public Shared Function LoadTransformChs() As Boolean
         ' Setup transform dynamic channels
         Dim TransFuncRecs() As DataRow = GetTransformsInfo("")
@@ -895,7 +899,7 @@ Public Class Automation
     End Function
 
     ' Helper function that takes 2 strings and tests them against the condition, adjusting for either string or numerical
-    Private Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String) As Boolean
+    Public Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String) As Boolean
         TestData = False
         Dim TrigVal As Single = 0, EventVal As Single = 0
         Select Case TestCond                                                                                ' Check data, either string matches or number
@@ -915,6 +919,10 @@ Public Class Automation
                 Else
                     Exit Function                                                                           ' Either number is invalid, so don't match
                 End If
+            Case Is = HAConst.TestCond.CHANGE
+
+            Case Is = HAConst.TestCond.CONTAINS
+
         End Select
         TestData = True                                                                                     ' Made it this far so we have a match
     End Function
