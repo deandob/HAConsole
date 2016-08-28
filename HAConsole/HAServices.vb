@@ -64,10 +64,13 @@ Namespace HAServices
         Public Ini As IniFile                                       ' Ini file management
         Public ClientIni As IniFile
         Private HAScripts As HAUtils.Scripting                                          ' Object that keeps the context of all the scripts in the script directory
+        Public IsLinux As Boolean                                   ' Linux or Windows
+        Public DataDir As String                                    ' Platform agnostic data file location in the user documents directory
 
         ' Read only static properties loaded from the ini file
         'Property LogFile As String                                          ' File name and location of console logs (table name = file name)
         Property DBLocn As String
+        Property NodePluginMgrLocn As String                                     ' Location of Node.JS plugin Manager
         Property myNetName As String
         Property TimerTick As Integer
         Property Scriptpath As String                                            ' Directory of the script files
@@ -95,25 +98,50 @@ Namespace HAServices
         ' Public constants (not adjustable)
         Public Const LOG_EXT As String = ".DB3"                              ' Log file extension name
         Public Const ERROR_LOG_FILE_NAME As String = "SystemErrors.log"      ' Text file log of system errors that can't be logged to the database
+        Public Const DATA_DIR_NAME As String = "HAData"                      ' Relative to home directory
+        Public Const WEB_CLIENT_DIR_NAME As String = "HAWebClient"           ' Relative to exe location
+        Public Const NODEJS_DIR_NAME As String = "PluginMgr"                 ' Relative to exe location
+
+        'TODO: Archiving
 
 #Region "Initialization"
 
         Public Sub Init()
             Try
+                IsLinux = (Environment.OSVersion.Platform = 4) Or (Environment.OSVersion.Platform = 6) Or (Environment.OSVersion.Platform = 128)
+                DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), DATA_DIR_NAME)
+                If Not File.Exists(Path.Combine(DataDir, "settings.ini")) Then
+                    Directory.CreateDirectory(DataDir)
+                    File.Copy(Path.Combine({Environment.CurrentDirectory, "..", "..", "settings.template"}), Path.Combine(DataDir, "settings.ini"))
+                    File.Copy(Path.Combine({Environment.CurrentDirectory, "..", "..", "clients.template"}), Path.Combine(DataDir, "clients.ini"))
+                    WriteConsole(True, "First time setup. Data directory, clients.ini and settings.ini created in " + DataDir + ". Edit settings.ini in this directory to change server settings.")
+                End If
+
                 WriteConsole(True, "Starting automation services...")
-                Ini = New IniFile("settings")                                                           ' Open and cache the ini file settings (filename: settings.ini, in the same directory as the .exe)
-                ClientIni = New IniFile("clients")
-                ClientLocn = ClientIni.Get("general", "FileLocn", "")
+
+                Ini = New IniFile(Path.Combine(DataDir, "settings"))                                                           ' Open and cache the ini file settings
+                ClientIni = New IniFile(Path.Combine(DataDir, "clients"))
+                'ClientLocn = ClientIni.Get("general", "FileLocn", DataDir)
+                ClientLocn = ClientIni.Get("general", "FileLocn", Path.Combine({Environment.CurrentDirectory, "..", "..", "..", "..", WEB_CLIENT_DIR_NAME}))
+                If ClientLocn = "" Then ClientLocn = Path.Combine({Environment.CurrentDirectory, "..", "..", "..", "..", WEB_CLIENT_DIR_NAME})
                 'LogFile = Ini.Get("database", "MessLogName", "MessLog")                                    ' name of message log file
-                DBLocn = Ini.Get("database", "DBPath", "Data")                                               ' Location to store log files
+                DBLocn = Ini.Get("database", "DBPath", DataDir)                                               ' Location to store log files
+                If DBLocn = "" Then DBLocn = DataDir
+                NodePluginMgrLocn = ClientIni.Get("nodepluginmgr", "NodePluginMgrLocn", Path.Combine({Environment.CurrentDirectory, "..", "..", "..", "..", NODEJS_DIR_NAME, NODEJS_DIR_NAME}))                                                 ' Location of node.js plugin manager
+                If NodePluginMgrLocn = "" Then NodePluginMgrLocn = Path.Combine({Environment.CurrentDirectory, "..", "..", "..", "..", NODEJS_DIR_NAME, NODEJS_DIR_NAME})
+                If Not File.Exists(Path.Combine(NodePluginMgrLocn, "nodebat.bat")) Then
+                    HandleSysErrors(True, "ERROR", "NODE.JS Plugin Manager files not found at " + NodePluginMgrLocn + ". Install Plugin Manager files before continuing. Exiting", New Exception("No Node Plugin Manager files found"))
+                End If
+
                 ArchiveFreq = Ini.Get("database", "Archive", "Monthly")                                       ' Frequency of creating archive logs
                 GlobalVars.myNetName = Ini.Get("Server", "NetworkName", "Home").ToUpper                                        ' Network name of server
                 TimerTick = CInt(Ini.Get("console", "TimerTick", "1000"))                                    ' msec timer ticks
-                ViewLogFrom = CInt(Ini.Get("console", "ViewLogFrom", "3"))               ' Get the view window time for the log console
+                ViewLogFrom = CInt(Ini.Get("console", "ViewLogFrom", "3"))                          ' Get the view window time for the log console
                 Latitude = Ini.Get("system", "Latitude", "0.0")                                    ' To calculate sunrise / sunset
                 Longitude = Ini.Get("system", "Longitude", "0.0")                                    ' To calculate sunrise / sunset
                 SunriseSetOffset = CInt(Ini.Get("system", "SunriseSetOffset", "30"))                 ' Offset +- mins to set sunrise / sunset flags
                 Scriptpath = Ini.Get("scripts", "scriptpath", "scripts")
+                If Scriptpath = "" Then Scriptpath = "scripts"
 
                 URLFindLongLat = Ini.Get("system", "URLFindLongLat", "http://www.getty.edu/research/tools/vocabularies/tgn")  ' Help link to calculate Long/Lat based on location
                 URLGetLongLat = Ini.Get("system", "URLGetLongLat", "http://www.geobytes.com/IpLocator.htm?GetLocation&Template=XML.txt")   ' Finds Long/Lat via IP address
@@ -156,7 +184,7 @@ Namespace HAServices
                 InitLogDB()
                 CompileScripts()
                 StartTimerThread()                                                                                              ' Dedicated thread for timed events
-                LoadPlugins(Directory.GetCurrentDirectory() + "\Plugins")                               ' Load all valid plugins on a separate thread as plugins can update the UI before the form is fully rendered
+                LoadPlugins(Path.Combine(Directory.GetCurrentDirectory(), "Plugins"))                               ' Load all valid plugins on a separate thread as plugins can update the UI before the form is fully rendered
                 Automation.InitAutoDB()                                                                 ' Initialise the automation DB & engine
                 LoadNodePlugins()
 
@@ -175,7 +203,7 @@ Namespace HAServices
             Next
             NodeProc.StartInfo.FileName = "nodebat.bat"
             NodeProc.StartInfo.Arguments = "plugmgr.js " + DebugMode.ToString()
-            NodeProc.StartInfo.WorkingDirectory = "..\..\..\..\pluginMgr\pluginMgr"
+            NodeProc.StartInfo.WorkingDirectory = NodePluginMgrLocn
             NodeProc.EnableRaisingEvents = True
             WriteConsole(True, "Starting Node.JS pluginMgr...")
             NodeProc.Start()
@@ -262,12 +290,10 @@ Namespace HAServices
         ' Data adaptor fill is initially pretty slow, takes about 10 seconds to load 1M records on a fast machine with a SSD. About 400MB RAM for 1M records
         Private Sub InitLogDB()
             Try
-                'Dim LogConn(GlobalVars.CategoryColl.Count - 1) As SQLite.SQLiteConnection
-                'Dim Lp As Integer
                 For Lp = 0 To GlobalVars.CategoryColl.Count - 2             ' ignore ALL category
                     Dim myLogConn As New SQLite.SQLiteConnection
-                    myLogConn.ConnectionString = "Data Source=" + DBLocn + "\" + CType(GlobalVars.CategoryColl.Item(Lp + 1), Structures.CatStruc).Cat.ToString + LOG_EXT + ";"
-                    If Not File.Exists(DBLocn + "\" + CType(GlobalVars.CategoryColl.Item(Lp + 1), Structures.CatStruc).Cat.ToString + LOG_EXT) Then                    ' If no log file exists then create it
+                    myLogConn.ConnectionString = "Data Source=" + Path.Combine(DBLocn, CType(GlobalVars.CategoryColl.Item(Lp + 1), Structures.CatStruc).Cat.ToString) + LOG_EXT + ";"
+                    If Not File.Exists(Path.Combine(DBLocn, CType(GlobalVars.CategoryColl.Item(Lp + 1), Structures.CatStruc).Cat.ToString) + LOG_EXT) Then                    ' If no log file exists then create it
                         myLogConn.Open()                                              ' Creates datafile if one does not exist (so has to execute after we check for data file existence)
                         SQLCmd = myLogConn.CreateCommand
                         If Environment.OSVersion.Platform = PlatformID.Win32NT Then             ' Tune the file size for the operating system (can set this in the ini file)
@@ -287,37 +313,6 @@ Namespace HAServices
                     LogConn.Add(myLogConn)
                 Next
 
-                'LogConn = New SQLite.SQLiteConnection
-
-                'LogConn.ConnectionString = "Data Source=" + DBLocn + "\" + LogFile + LOG_EXT + ";"
-                'If Not File.Exists(DBLocn + "\" + LogFile + LOG_EXT) Then                    ' If no log file exists then create it
-                ' LogConn.Open()                                              ' Creates datafile if one does not exist (so has to execute after we check for data file existence)
-                'SQLCmd = LogConn.CreateCommand
-                'If Environment.OSVersion.Platform = PlatformID.Win32NT Then             ' Tune the file size for the operating system (can set this in the ini file)
-                'SQLCmd.CommandText = "PRAGMA page_size=" + Ini.Get("System", "WindowsClusterSize", "4096") + ";"          ' Windows
-                'Else
-                'SQLCmd.CommandText = "PRAGMA page_size=" + Ini.Get("System", "LinuxClusterSize", "1024") + ";"          ' Linux
-                'End If
-                'SQLCmd.ExecuteNonQuery()
-                'SQLCmd.CommandText = "CREATE TABLE " + LogFile + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, TIME INTEGER, FUNC INTEGER, LEVEL INTEGER, NETWORK INTEGER, CATEGORY INTEGER, CLASS TEXT COLLATE NOCASE, INSTANCE TEXT COLLATE NOCASE, SCOPE TEXT COLLATE NOCASE, DATA TEXT COLLATE NOCASE);"
-                'SQLCmd.ExecuteNonQuery()
-                'Else
-                'LogConn.Open()                                              ' Open existing log
-                'SQLCmd = LogConn.CreateCommand
-                'End If
-
-                'Dim xxLogConn As New SQLite.SQLiteConnection
-                'xxLogConn.ConnectionString = "Data Source=" + DBLocn + "\MessLog" + LOG_EXT + ";"
-                'xxLogConn.Open()                                              ' Creates datafile if one does not exist (so has to execute after we check for data file existence)
-                'SQLCmd = xxLogConn.CreateCommand
-                'Dim dt As DataTable = New DataTable()
-                'Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
-                'Dim xx = 2
-                'SQLCmd.CommandText = "SELECT * FROM MESSLOG WHERE CATEGORY=" + (xx + 1).ToString
-                'da.SelectCommand = SQLCmd
-                'dt.BeginLoadData()
-                'da.Fill(dt)                                     ' Load the datatable with the result of the query
-                'dt.EndLoadData()
 
                 'SQLCmd.CommandText = "CREATE TABLE MESSLOG (ID INTEGER PRIMARY KEY AUTOINCREMENT, TIME INTEGER, FUNC INTEGER, LEVEL INTEGER, CLASS TEXT COLLATE NOCASE, INSTANCE TEXT COLLATE NOCASE, SCOPE TEXT COLLATE NOCASE, DATA TEXT COLLATE NOCASE);"
                 'Dim transaction = CType(LogConn.Item(xx), SQLite.SQLiteConnection).BeginTransaction()
@@ -342,7 +337,7 @@ Namespace HAServices
                 'Next
                 'ransaction.Commit()
 
-                LogCreated = File.GetCreationTime(DBLocn + "\SYSTEM" + LOG_EXT)                  ' Used to determine if its time to archive the logs
+                LogCreated = File.GetCreationTime(Path.Combine(DBLocn, "SYSTEM" + LOG_EXT))                  ' Used to determine if its time to archive the logs
 
                 StartDBQueue()                                                                  ' Start the action queue for handling the database
 
@@ -559,13 +554,13 @@ Namespace HAServices
                                                     Case Is = "IMAGE"             ' images
                                                         Select Case splitFile(3)
                                                             Case Is = "data:image/png;base64", "data:image/bmp;base64", "data:image/jpeg;base64"             ' images
-                                                                Dim ImgLoc As String = ClientLocn + "\images\"
+                                                                Dim ImgLoc As String = Path.Combine(ClientLocn, "images")
                                                                 Dim img As System.Drawing.Image
                                                                 Dim fileBytes As Byte() = Convert.FromBase64String(splitFile(4))
                                                                 Using ms As MemoryStream = New MemoryStream
                                                                     ms.Write(fileBytes, 0, fileBytes.Length)
                                                                     img = System.Drawing.Image.FromStream(ms)
-                                                                    img.Save(ImgLoc + splitFile(2))
+                                                                    img.Save(Path.Combine(ImgLoc, splitFile(2)))
                                                                 End Using
                                                                 img.Dispose()
                                                                 myMessage.Scope = "IMAGE"
@@ -658,7 +653,7 @@ Namespace HAServices
 
         Public Function GetProgramNames(type As String) As String
             Dim ProgramDir As String
-            If type = "WIDGETS" Then ProgramDir = ClientLocn + "\" + type Else ProgramDir = type
+            If type = "WIDGETS" Then ProgramDir = Path.Combine(ClientLocn, type) Else ProgramDir = type
             Dim di As New DirectoryInfo(ProgramDir)
             Dim fileNames As String = ""
             Dim SearchExts As String() = {}

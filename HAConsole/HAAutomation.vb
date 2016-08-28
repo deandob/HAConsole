@@ -859,7 +859,7 @@ Public Class Automation
             'WriteConsole(True, "time trigger enter " + CStr(row("TrigName")) + " " + Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute.ToString)
             If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Hour <> Date.Now.Hour Then Exit Function
             If Date.FromBinary(TrigTimeOfDay).ToLocalTime.Minute <> Date.Now.Minute Then Exit Function
-            If CLng(row.Item("TrigLastFired")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Only trigger once per day
+            If CLng(row.Item("TrigLastFired")) <> 0 Then If Date.FromBinary(CLng(row.Item("TrigLastFired"))).ToLocalTime.Day = Date.Now.Day Then Exit Function        ' Only trigger once per day if the trigger isn't new
             'WriteConsole(True, "time trigger found " + CStr(row("TrigName")))
         End If
 

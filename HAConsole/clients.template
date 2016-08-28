@@ -1,0 +1,12 @@
+; Settings file for the home automation clients
+[General]
+; Only change if changing location of client files (use absolute path) else leave blank for default HAClient directory in user home directory
+FileLocn = 
+
+[Desktop]
+
+[Tablet]
+
+[Phone]
+
+[Widgets]
