@@ -1,0 +1,2036 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>fastJSON</name>
+    </assembly>
+    <members>
+        <member name="T:fastJSON.BonusPack.Converters">
+            <summary>
+            Contains extra <see cref="T:fastJSON.IJsonConverter"/>s to help serializing extra types. Those converters will not automatically get effective unless they are applied to corresponding types via the <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method or members via the <see cref="M:fastJSON.SerializationManager.OverrideMemberConverter(System.Type,System.String,fastJSON.IJsonConverter)"/> method.
+            </summary>
+            <preliminary />
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.IPAddress">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Net.IPAddress"/> instances.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.Regex">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Text.RegularExpressions.Regex"/> instances.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.ZeroOneBoolean">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Boolean"/> instances to numeric 1 or 0 rather than the default "true", "false" values.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.TextualZeroOneBoolean">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Boolean"/> instances to literal "1" or "0" rather than the default "true", "false" values.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.Uri">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Uri"/> instances.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.Version">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Version"/> instances.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.Converters.XmlNode">
+            <summary>
+            Gets an <see cref="T:fastJSON.IJsonConverter"/> to serialize <see cref="T:System.Xml.XmlDocument"/> or <see cref="T:System.Xml.XmlElement"/> instances. NOTICE: Deserialization is not supported at this moment.
+            </summary>
+            <remarks>
+            <para>Elements will be serialized as a dictionary which contains the following three items:</para>
+            <list type="table">
+            <listheader><term>XML Node</term><description>Serialization Result</description></listheader>
+            <item><term>Element name</term><description>A dictionary entry with a name as the element qualified name surrounded with &lt; and &gt; and the value is its namespace URL.</description></item>
+            <item><term>Attributes</term><description>A dictionary entry with a name as the attribute name prefixed with an "@" character, and the value of the attribute.</description></item>
+            <item><term>Nodes</term><description>An array contains the child nodes of the element. The array can contain the following node types and child elements.</description></item>
+            <item><term>Text, CDATA, Entity reference</term><description>A text in the nodes array.</description></item>
+            <item><term>Processing Instruction, XML declaration</term><description>A dictionary containing one name-value pair in the nodes array.</description></item>
+            <item><term>Comment</term><description>A dictionary in the nodes array with a name "!" and a value as the content of the comment.</description></item>
+            </list>
+            </remarks>
+        </member>
+        <member name="T:fastJSON.BonusPack.IPAddressConverter">
+            <summary>
+            An <see cref="T:fastJSON.IJsonConverter"/> which converts between <see cref="T:System.Net.IPAddress"/> and string.
+            </summary>
+        </member>
+        <member name="T:fastJSON.BonusPack.VersionConverter">
+            <summary>
+            An <see cref="T:fastJSON.IJsonConverter"/> which converts between <see cref="T:System.Version"/> and string.
+            </summary>
+        </member>
+        <member name="T:fastJSON.BonusPack.XmlNodeConverter">
+            <summary>
+            A <see cref="T:fastJSON.IJsonConverter"/> to convert <see cref="T:System.Xml.XmlElement"/> to JSON strings. Currently deserialization has not yet been implemented.
+            </summary>
+        </member>
+        <member name="T:fastJSON.BonusPack.ZeroOneBooleanConverter">
+            <summary>
+            A <see cref="T:fastJSON.IJsonConverter"/> converts boolean values to 1/0 or "1"/"0", rather than the default "true" and "false" values.
+            </summary>
+        </member>
+        <member name="M:fastJSON.BonusPack.ZeroOneBooleanConverter.#ctor">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.BonusPack.ZeroOneBooleanConverter"/>.
+            </summary>
+        </member>
+        <member name="M:fastJSON.BonusPack.ZeroOneBooleanConverter.#ctor(System.Boolean)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.BonusPack.ZeroOneBooleanConverter"/>, specifying whether the boolean values should be serialized to textual "1"/"0" values.
+            </summary>
+            <param name="useTextualForm">When this value is true, the boolean values will be serialized to textual "1"/"0" values.</param>
+        </member>
+        <member name="P:fastJSON.BonusPack.ZeroOneBooleanConverter.UseTextualForm">
+            <summary>
+            Gets whether the boolean values should be serialized to textual "1"/"0" values.
+            </summary>
+        </member>
+        <member name="T:fastJSON.BonusPack.EnumerableDataReader">
+            <summary>
+            Turns an <see cref="T:System.Collections.Generic.IEnumerable`1"/> collection into an <see cref="T:fastJSON.BonusPack.EnumerableDataReader"/>.
+            </summary>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader.Create``1(System.Collections.Generic.IEnumerable{``0})">
+            <summary>
+            Creates an <see cref="T:fastJSON.BonusPack.EnumerableDataReader`1"/> instance from a given <see cref="T:System.Collections.Generic.IEnumerable`1"/> instance.
+            </summary>
+            <typeparam name="T">The type of the data.</typeparam>
+            <param name="collection">The data to be read.</param>
+            <returns>An <see cref="T:fastJSON.BonusPack.EnumerableDataReader`1"/> instance.</returns>
+        </member>
+        <member name="T:fastJSON.BonusPack.EnumerableDataReader`1">
+            <summary>
+            Experimental Feature:
+            Converts <see cref="T:System.Collections.Generic.IEnumerable`1"/> instances into <see cref="T:System.Data.IDataReader"/> for <see cref="M:System.Data.SqlClient.SqlBulkCopy.WriteToServer(System.Data.IDataReader)"/>.
+            </summary>
+            <remarks>References:
+            1) https://github.com/matthewschrager/Repository/blob/master/Repository.EntityFramework/EntityDataReader.cs;
+            2) http://www.codeproject.com/Articles/876276/Bulk-Insert-Into-SQL-From-Csharp</remarks>
+            <typeparam name="T">The data type in the data source.</typeparam>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.#ctor(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.BonusPack.EnumerableDataReader`1"/> class.
+            </summary>
+            <param name="collection">The collection to be exported.</param>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.#ctor(System.Collections.Generic.IEnumerable{`0},System.Boolean)">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.BonusPack.EnumerableDataReader`1"/> class.
+            </summary>
+            <param name="collection">The collection.</param>
+            <param name="showReadOnlyValues">if set to <c>true</c>, read-only values will be exported to the <see cref="T:System.Data.IDataReader"/>.</param>
+            <exception cref="T:System.NotSupportedException">This exception will be thrown when <typeparamref name="T"/> is a scalar type.</exception>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.Close">
+            <summary>
+            Closes the reader.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.EnumerableDataReader`1.Depth">
+            <summary>
+            Gets the depth of the reader (0 is always returned).
+            </summary>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetSchemaTable">
+            <summary>
+            Gets the schema table.
+            </summary>
+            <returns>The schema table containing the following columns for each member: ColumnName, ColumnOrdinal, DataType, DataTypeName, ColumnSize.</returns>
+        </member>
+        <member name="P:fastJSON.BonusPack.EnumerableDataReader`1.IsClosed">
+            <summary>
+            Gets a value indicating whether this instance is closed.
+            </summary>
+            <value>
+              <c>true</c> if this instance is closed; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.NextResult">
+            <summary>
+            Proceed to the next result.
+            </summary>
+            <returns>Always returns false.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.Read">
+            <summary>
+            Reads an object in the collection.
+            </summary>
+            <returns>True if there is an object being read, otherwise, false.</returns>
+            <exception cref="T:System.ObjectDisposedException">The instance is disposed.</exception>
+        </member>
+        <member name="P:fastJSON.BonusPack.EnumerableDataReader`1.RecordsAffected">
+            <summary>
+            Gets the records affected (always returns -1).
+            </summary>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.Dispose">
+            <summary>
+            Dispose the internal collection enumerator.
+            </summary>
+        </member>
+        <member name="P:fastJSON.BonusPack.EnumerableDataReader`1.FieldCount">
+            <summary>
+            Gets the field count.
+            </summary>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetBoolean(System.Int32)">
+            <summary>
+            Gets a boolean value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetByte(System.Int32)">
+            <summary>
+            Gets a byte value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetBytes(System.Int32,System.Int64,System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Gets the bytes at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <param name="fieldOffset">The field offset.</param>
+            <param name="buffer">The buffer.</param>
+            <param name="bufferoffset">The buffer offset.</param>
+            <param name="length">The length to read.</param>
+            <returns>The number of bytes copied into the buffer.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetChar(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Char"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetChars(System.Int32,System.Int64,System.Char[],System.Int32,System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Char"/> array at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <param name="fieldoffset">The field offset.</param>
+            <param name="buffer">The buffer.</param>
+            <param name="bufferoffset">The buffer offset.</param>
+            <param name="length">The length to read.</param>
+            <returns>The number of bytes copied into the buffer.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetData(System.Int32)">
+            <summary>
+            This method is not implemented.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns></returns>
+            <exception cref="T:System.NotImplementedException"></exception>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetDataTypeName(System.Int32)">
+            <summary>
+            Gets the name of the data type.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns></returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetDateTime(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.DateTime"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetDecimal(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Decimal"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetDouble(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Double"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetFieldType(System.Int32)">
+            <summary>
+            Gets the type of the field.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The <see cref="T:System.Type"/> of the member at specific field index.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetFloat(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Single"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetGuid(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Guid"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetInt16(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Int16"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetInt32(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Int32"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetInt64(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.Int64"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetName(System.Int32)">
+            <summary>
+            Gets the name of the field.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The member name at the specific index.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetOrdinal(System.String)">
+            <summary>
+            Gets the ordinal index of a member.
+            </summary>
+            <param name="name">The name of the member.</param>
+            <returns>The field index of the member.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetString(System.Int32)">
+            <summary>
+            Gets a <see cref="T:System.String"/> value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetValue(System.Int32)">
+            <summary>
+            Gets the value at the specific index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.GetValues(System.Object[])">
+            <summary>
+            Loads all values into the <paramref name="values"/> array.
+            </summary>
+            <param name="values">The array which holds the field values.</param>
+            <returns>The number of fields loaded into the array.</returns>
+        </member>
+        <member name="M:fastJSON.BonusPack.EnumerableDataReader`1.IsDBNull(System.Int32)">
+            <summary>
+            Determines whether the field at the specific index is <see cref="T:System.DBNull"/>.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>True if the value is <see cref="T:System.DBNull"/></returns>
+        </member>
+        <member name="P:fastJSON.BonusPack.EnumerableDataReader`1.Item(System.String)">
+            <summary>
+            Gets the value of a member with the specified name.
+            </summary>
+            <param name="name">The name of the field.</param>
+            <returns>The value of the member with the specific name.</returns>
+        </member>
+        <member name="P:fastJSON.BonusPack.EnumerableDataReader`1.Item(System.Int32)">
+            <summary>
+            Gets the value of a member at the specified index.
+            </summary>
+            <param name="i">The index of the field.</param>
+            <returns>The value of a member at the specified index.</returns>
+        </member>
+        <member name="T:fastJSON.EnumValueFormat">
+            <summary>
+            Controls the naming format of serialized enum values.
+            </summary>
+        </member>
+        <member name="F:fastJSON.EnumValueFormat.Default">
+            <summary>
+            The serialized names will be the same as the field name.
+            </summary>
+        </member>
+        <member name="F:fastJSON.EnumValueFormat.LowerCase">
+            <summary>
+            All letters in the serialized names will be changed to lowercase.
+            </summary>
+        </member>
+        <member name="F:fastJSON.EnumValueFormat.CamelCase">
+            <summary>
+            The first letter of each serialized names will be changed to lowercase.
+            </summary>
+        </member>
+        <member name="F:fastJSON.EnumValueFormat.UpperCase">
+            <summary>
+            All letters in the serialized names will be changed to uppercase.
+            </summary>
+        </member>
+        <member name="F:fastJSON.EnumValueFormat.Numeric">
+            <summary>
+            Enum fields will be serialized numerically.
+            </summary>
+        </member>
+        <member name="T:fastJSON.NamingConvention">
+            <summary>
+            Controls the letter case of serialized field names.
+            </summary>
+        </member>
+        <member name="F:fastJSON.NamingConvention.Default">
+            <summary>
+            The letter case of the serialized field names will be the same as the field or member name.
+            </summary>
+        </member>
+        <member name="F:fastJSON.NamingConvention.LowerCase">
+            <summary>
+            All letters in the serialized field names will be changed to lowercase.
+            </summary>
+        </member>
+        <member name="F:fastJSON.NamingConvention.CamelCase">
+            <summary>
+            The first letter of each serialized field names will be changed to lowercase.
+            </summary>
+        </member>
+        <member name="F:fastJSON.NamingConvention.UpperCase">
+            <summary>
+            All letters in the serialized field names will be changed to uppercase.
+            </summary>
+        </member>
+        <member name="T:fastJSON.TriState">
+            <summary>Indicates the state of a setting.</summary>
+        </member>
+        <member name="F:fastJSON.TriState.Default">
+            <summary>Represents the normal behavior.</summary>
+        </member>
+        <member name="F:fastJSON.TriState.True">
+            <summary>Represents a positive setting. Actions should be taken to the object.</summary>
+        </member>
+        <member name="F:fastJSON.TriState.False">
+            <summary>Represents a negative setting. Actions may not be taken to the object.</summary>
+        </member>
+        <member name="T:fastJSON.IJsonInterceptor">
+            <summary>
+            <para>An interface to intercept various aspects in JSON serialization and deserialization.</para>
+            <para>It is recommended to inherit from <see cref="T:fastJSON.JsonInterceptor`1"/> for easier implementation when possible.</para>
+            </summary>
+            <preliminary />
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.OnSerializing(System.Object)">
+            <summary>
+            This method is called before values are written out during serialization. If the method returns false, the object will not be serialized.
+            </summary>
+            <param name="data">The object being serialized.</param>
+            <returns>Whether the object should be serialized.</returns>
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.SerializeExtraValues(System.Object)">
+            <summary>
+            This method is called before the serialization is finished. Extra values can be returned and written to the serialized result.
+            </summary>
+            <param name="data">The object being serialized.</param>
+            <returns>Extra values to be serialized.</returns>
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.OnSerialized(System.Object)">
+            <summary>
+            This method is called after the object has been fully serialized.
+            </summary>
+            <param name="data">The object being serialized.</param>
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.OnSerializing(System.Object,fastJSON.JsonItem)">
+            <summary>
+            This method is called before serializing a field or a property. If the method returns false, the member will not be serialized.
+            </summary>
+            <param name="data">The container object.</param>
+            <param name="item">The item to be serialized.</param>
+            <returns>Whether the member should be serialized.</returns>
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.OnDeserializing(System.Object)">
+            <summary>
+            This method is called between the object has been created and the values are filled during deserialization.
+            This method provides an opportunity to initialize an object before deserialization.
+            </summary>
+            <param name="data">The object being deserialized.</param>
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.OnDeserialized(System.Object)">
+            <summary>
+            This method is called after the object has been fully deserialized. Data validation could be done onto the serialized object.
+            </summary>
+            <param name="data">The object created from deserialization.</param>
+        </member>
+        <member name="M:fastJSON.IJsonInterceptor.OnDeserializing(System.Object,fastJSON.JsonItem)">
+            <summary>
+            This method is called before deserializing a field or a property. If the method returns false, the member will not be deserialized.
+            </summary>
+            <param name="data">The container object.</param>
+            <param name="item">The item to be deserialized.</param>
+            <returns>Whether the member should be deserialized.</returns>
+        </member>
+        <member name="T:fastJSON.JsonInterceptor`1">
+            <summary>
+            This is a default implementation of <see cref="T:fastJSON.IJsonInterceptor"/>, which restricts the type of the object being serialized or deserialized.
+            The default implementation does nothing and returns true for all OnSerializing or OnDeserializing methods.
+            </summary>
+            <typeparam name="T">The type of the object being serialized or deserialized.</typeparam>
+            <preliminary />
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.OnSerializing(`0)">
+            <summary>
+            This method is called before values are written out during serialization. If the method returns false, the object will not be serialized.
+            </summary>
+            <param name="data">The object being serialized.</param>
+            <returns>Whether the object should be serialized.</returns>
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.SerializeExtraValues(`0)">
+            <summary>
+            This method is called before the serialization is finished. Extra values can be returned and written to the serialized result.
+            </summary>
+            <param name="data">The object being serialized.</param>
+            <returns>Extra values to be serialized.</returns>
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.OnSerialized(`0)">
+            <summary>
+            This method is called after the object has been fully serialized.
+            </summary>
+            <param name="data">The object being serialized.</param>
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.OnDeserializing(`0)">
+            <summary>
+            This method is called between the object has been created and the values are filled during deserialization.
+            This method provides an opportunity to initialize an object before deserialization.
+            </summary>
+            <param name="data">The object being deserialized.</param>
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.OnDeserialized(`0)">
+            <summary>
+            This method is called after the object has been fully deserialized. Data validation could be done onto the serialized object.
+            </summary>
+            <param name="data">The object created from deserialization.</param>
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.OnSerializing(`0,fastJSON.JsonItem)">
+            <summary>
+            This method is called before serializing a field or a property. If the method returns false, the member will not be serialized.
+            </summary>
+            <param name="data">The container object.</param>
+            <param name="item">The item being serialized.</param>
+            <returns>Whether the member should be serialized.</returns>
+        </member>
+        <member name="M:fastJSON.JsonInterceptor`1.OnDeserializing(`0,fastJSON.JsonItem)">
+            <summary>
+            This method is called before deserializing a field or a property. If the method returns false, the member will not be deserialized.
+            </summary>
+            <param name="data">The container object.</param>
+            <param name="item">The item to be deserialized.</param>
+            <returns>Whether the member should be deserialized.</returns>
+        </member>
+        <member name="T:fastJSON.IJsonConverter">
+            <summary>
+            Converts the member value being serialized or deserialized.
+            </summary>
+            <remarks>
+            <para>During deserialization, the JSON string is parsed and converted to primitive data.
+            The data could be one of the following six types returned from the JSON Parser: <see cref="T:System.Boolean"/>, <see cref="T:System.Int64"/>, <see cref="T:System.Double"/>, <see cref="T:System.String"/>, <see cref="T:System.Collections.Generic.IList`1"/> and <see cref="T:System.Collections.Generic.IDictionary`2"/>.</para>
+            <para>The <see cref="M:fastJSON.IJsonConverter.DeserializationConvert(fastJSON.JsonItem)"/> method should be able to process the above six types, as well as the null value, and convert the value to match the type of the member being deserialized.</para>
+            <para>If the <see cref="M:fastJSON.IJsonConverter.GetReversiveType(fastJSON.JsonItem)"/> method returns a <see cref="T:System.Type"/> instead of null or the type of <see cref="T:System.Object"/>, the deserializer will firstly attempt to revert the primitive data to match that type, and then pass the reverted value to the <see cref="M:fastJSON.IJsonConverter.DeserializationConvert(fastJSON.JsonItem)"/> method.
+            By this means, the implementation of <see cref="M:fastJSON.IJsonConverter.DeserializationConvert(fastJSON.JsonItem)"/> method does not have to cope with primitive data types.</para>
+            <para>To implement the <see cref="M:fastJSON.IJsonConverter.GetReversiveType(fastJSON.JsonItem)"/> method, keep in mind that the <see cref="P:fastJSON.JsonItem.Value"/> in the <see cref="T:fastJSON.JsonItem"/> instance will always be primitive data.</para>
+            </remarks>
+            <preliminary />
+        </member>
+        <member name="M:fastJSON.IJsonConverter.GetReversiveType(fastJSON.JsonItem)">
+            <summary>
+            Returns the expected type from the primitive data in <paramref name="item" />.
+            If the returned type is not null, the deserializer will attempt to convert the <see cref="P:fastJSON.JsonItem.Value"/> of <paramref name="item" /> to match the returned type.
+            </summary>
+            <param name="item">The item to be deserialized.</param>
+            <returns>The expected data type.</returns>
+        </member>
+        <member name="M:fastJSON.IJsonConverter.SerializationConvert(fastJSON.JsonItem)">
+            <summary>
+            Converts the <paramref name="item" /> to a new value during serialization.
+            Either <see cref="P:fastJSON.JsonItem.Name"/> or <see cref="P:fastJSON.JsonItem.Value"/> of the <paramref name="item" /> can be changed.
+            However, if the name is changed, the data might not be properly deserialized.
+            </summary>
+            <param name="item">The item to be deserialized.</param>
+        </member>
+        <member name="M:fastJSON.IJsonConverter.DeserializationConvert(fastJSON.JsonItem)">
+            <summary>
+            <para>Converts the <see cref="P:fastJSON.JsonItem.Value"/> of <paramref name="item" /> to a new value during deserialization. The <see cref="P:fastJSON.JsonItem.Value"/> of <paramref name="item" /> can be changed to a different type.
+            This enables adapting various data types from deserialization.</para>
+            <para>The <see cref="P:fastJSON.JsonItem.Value"/> of <paramref name="item" /> could be one of six primitive value types.
+            For further information, refer to <see cref="T:fastJSON.IJsonConverter"/>.</para>
+            </summary>
+            <param name="item">The item to be deserialized.</param>
+        </member>
+        <member name="T:fastJSON.JsonConverter`2">
+            <summary>
+            A helper converter which implements the <see cref="T:fastJSON.IJsonConverter"/> to convert between two specific types.
+            </summary>
+            <typeparam name="TOriginal">The original type of the data being serialized.</typeparam>
+            <typeparam name="TSerialized">The serialized type of the data.</typeparam>
+            <remarks>For further details about implementation, please refer to <seealso cref="T:fastJSON.IJsonConverter"/>.</remarks>
+            <preliminary />
+        </member>
+        <member name="M:fastJSON.JsonConverter`2.#ctor">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.JsonConverter`2"/>.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonConverter`2.GetReversiveType(fastJSON.JsonItem)">
+            <summary>
+            Returns the expected type for <paramref name="item"/>. The default implementation returns <typeparamref name="TSerialized"/>.
+            </summary>
+            <param name="item">The item to be deserialized.</param>
+            <returns>The type of <typeparamref name="TSerialized"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JsonConverter`2.SerializationConvert(fastJSON.JsonItem)">
+            <summary>
+            Converts the original value before serialization. If the serialized value is not the type of <typeparamref name="TOriginal"/>, the <paramref name="item"/> will be returned.
+            </summary>
+            <param name="item">The item to be deserialized.</param>
+        </member>
+        <member name="M:fastJSON.JsonConverter`2.DeserializationConvert(fastJSON.JsonItem)">
+            <summary>
+            Reverts the serialized value to <typeparamref name="TOriginal"/>. If the serialized value is not the type of <typeparamref name="TSerialized"/>, nothing will be changed.
+            </summary>
+            <param name="item">The item to be deserialized.</param>
+        </member>
+        <member name="M:fastJSON.JsonConverter`2.Convert(System.String,`0)">
+            <summary>
+            Converts the original value to <typeparamref name="TSerialized"/> type before serialization.
+            </summary>
+            <param name="fieldName">The name of the annotated member.</param>
+            <param name="fieldValue">The value being serialized.</param>
+            <returns>The converted value.</returns>
+        </member>
+        <member name="M:fastJSON.JsonConverter`2.Revert(System.String,`1)">
+            <summary>
+            Reverts the serialized value to the <typeparamref name="TOriginal"/> type.
+            </summary>
+            <param name="fieldName">The name of the annotated member.</param>
+            <param name="fieldValue">The serialized value.</param>
+            <returns>The reverted value which has the same type as the annotated member.</returns>
+        </member>
+        <member name="T:fastJSON.JsonItem">
+            <summary>
+            Represents a JSON name-value pair.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonItem.Renameable">
+            <summary>
+            Gets whether the <see cref="P:fastJSON.JsonItem.Name"/> property of this <see cref="T:fastJSON.JsonItem"/> instance can be changed.
+            </summary>
+            <remarks>During serialization, the <see cref="P:fastJSON.JsonItem.Name"/> of the property can be changed, and this value is true. During deserialization or serializing an item of an <see cref="T:System.Collections.Generic.IEnumerable`1"/> instance, the <see cref="P:fastJSON.JsonItem.Name"/> can not be changed, and this value is false.</remarks>
+        </member>
+        <member name="P:fastJSON.JsonItem.Name">
+            <summary>
+            The name of the item. During serialization, this property can be changed to serialize the member to another name. If the item is the object initially passed to the <see cref="M:fastJSON.JSON.ToJSON(System.Object)"/> method (or its overloads), this value will be an empty string.
+            </summary>
+            <exception cref="T:System.InvalidOperationException">This value is changed during deserialization or serializing an item of an <see cref="T:System.Collections.Generic.IEnumerable`1"/> instance.</exception>
+        </member>
+        <member name="P:fastJSON.JsonItem.Value">
+            <summary>
+            Gets or sets the value of the item. The type and value of this property can be changed. The serializer and deserializer will take the changed value.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonItem.#ctor(System.String,System.Object)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.JsonItem"/>.
+            </summary>
+            <param name="name">The name of the item.</param>
+            <param name="value">The value of the item.</param>
+        </member>
+        <member name="M:fastJSON.JsonDeserializer.CreateObject(fastJSON.JsonDict,fastJSON.ReflectionCache,System.Object)">
+            <summary>
+            Deserializes an object.
+            </summary>
+            <param name="data">The data to be deserialized.</param>
+            <param name="type">The reflection cache of the type.</param>
+            <param name="input">The data container. If this value is not null, deserialized members will be written to it. If null, new object will be created.</param>
+            <returns>The deserialized object.</returns>
+            <exception cref="T:fastJSON.JsonSerializationException">Cannot determine type from <paramref name="data"/>.</exception>
+        </member>
+        <member name="T:fastJSON.JSONParameters">
+            <summary>
+            Gives the basic control over JSON serialization and deserialization.
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UseOptimizedDatasetSchema">
+            <summary>
+            Uses the optimized fast Dataset Schema format (default = True)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UseFastGuid">
+            <summary>
+            Uses the fast GUID format (default = True)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.SerializeNullValues">
+            <summary>
+            Serializes null values to the output (default = True)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.SerializeStaticMembers">
+            <summary>
+            Serializes static fields or properties into the output (default = true).
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.SerializeEmptyCollections">
+            <summary>
+            Serializes arrays, collections, lists or dictionaries with no element (default = true).
+            </summary>
+            <remarks>If the collection is the root object, it is not affected by this setting. Byte arrays are not affected by this setting either.</remarks>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UseUTCDateTime">
+            <summary>
+            Use the UTC date format (default = True)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.ShowReadOnlyProperties">
+            <summary>
+            Shows the read-only properties of types in the output (default = False). <see cref="T:fastJSON.JsonIncludeAttribute"/> has higher precedence than this setting.
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.ShowReadOnlyFields">
+            <summary>
+            Shows the read-only fields of types in the output (default = False). <see cref="T:fastJSON.JsonIncludeAttribute"/> has higher precedence than this setting.
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UsingGlobalTypes">
+            <summary>
+            Uses the $types extension to optimize the output JSON (default = True)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.IgnoreCaseOnDeserialize">
+            <summary>
+            Ignores case when processing JSON and deserializing 
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.EnableAnonymousTypes">
+            <summary>
+            Anonymous types have read only properties 
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UseExtensions">
+            <summary>
+            Enables fastJSON extensions $types, $type, $map (default = True).
+            This setting must be set to true if circular reference detection is required.
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UseEscapedUnicode">
+            <summary>
+            Use escaped Unicode i.e. \uXXXX format for non ASCII characters (default = True)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.KVStyleStringDictionary">
+            <summary>
+            Outputs string key dictionaries as "k"/"v" format (default = False) 
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.UseValuesOfEnums">
+            <summary>
+            Outputs Enum values instead of names (default = False).
+            </summary>
+        </member>
+        <member name="P:fastJSON.JSONParameters.IgnoreAttributes">
+            <summary>
+            Ignores attributes to check for (default : XmlIgnoreAttribute)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.ParametricConstructorOverride">
+            <summary>
+            If you have parametric and no default constructor for you classes (default = False)
+            
+            IMPORTANT NOTE : If True then all initial values within the class will be ignored and will be not set.
+            In this case, you can use <see cref="T:fastJSON.JsonInterceptorAttribute"/> to assign an <see cref="T:fastJSON.IJsonInterceptor"/> to initialize the object.
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.DateTimeMilliseconds">
+            <summary>
+            Serializes DateTime milliseconds i.e. yyyy-MM-dd HH:mm:ss.nnn (default = false)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.SerializerMaxDepth">
+            <summary>
+            Maximum depth for circular references in inline mode (default = 20)
+            </summary>
+        </member>
+        <member name="F:fastJSON.JSONParameters.InlineCircularReferences">
+            <summary>
+            Inlines circular or already seen objects instead of replacement with $i (default = False) 
+            </summary>
+        </member>
+        <member name="P:fastJSON.JSONParameters.SerializeToLowerCaseNames">
+            <summary>
+            Saves property/field names as lowercase (default = false)
+            </summary>
+        </member>
+        <member name="P:fastJSON.JSONParameters.NamingConvention">
+            <summary>
+            Controls the case of serialized field names.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JSONParameters.FixValues">
+            <summary>
+            Fixes conflicting parameters.
+            </summary>
+        </member>
+        <member name="T:fastJSON.JsonSerializationException">
+            <summary>
+            An exception thrown during serialization or deserialization.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonSerializationException.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.JsonSerializationException"/> class.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonSerializationException.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.JsonSerializationException"/> class.
+            </summary>
+            <param name="message">The message that describes the error.</param>
+        </member>
+        <member name="M:fastJSON.JsonSerializationException.#ctor(System.String,System.Exception)">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.JsonSerializationException"/> class.
+            </summary>
+            <param name="message">The message.</param>
+            <param name="inner">The inner exception.</param>
+        </member>
+        <member name="M:fastJSON.JsonSerializationException.#ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.JsonSerializationException"/> class.
+            </summary>
+            <param name="info">The <see cref="T:System.Runtime.Serialization.SerializationInfo" /> that holds the serialized object data about the exception being thrown.</param>
+            <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext" /> that contains contextual information about the source or destination.</param>
+        </member>
+        <member name="T:fastJSON.JsonParserException">
+            <summary>
+            An exception thrown when parser encounters malformed JSON string.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonParserException.Position">
+            <summary>
+            Gets the index where parse error occurs.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonParserException.ContextText">
+            <summary>
+            Gets the context text around the error position.
+            </summary>
+        </member>
+        <member name="T:fastJSON.Serialize">
+            <summary>
+            A delegate to turn objects into JSON strings.
+            </summary>
+            <param name="data">The data to be serialized.</param>
+            <returns>The JSON segment representing <paramref name="data"/>.</returns>
+        </member>
+        <member name="T:fastJSON.Deserialize">
+            <summary>
+            A delegate to turn JSON segments into object data.
+            </summary>
+            <param name="data">The JSON string.</param>
+            <returns>The object represented by <paramref name="data"/>.</returns>
+        </member>
+        <member name="T:fastJSON.JSON">
+            <summary>
+            The operation center of JSON serialization and deserialization.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JSON.Parameters">
+            <summary>
+            Gets or sets global parameters for the serializer.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JSON.Manager">
+            <summary>
+            Gets the default serialization manager for controlling the serializer.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JSON.ToNiceJSON(System.Object,fastJSON.JSONParameters)">
+            <summary>
+            Creates a formatted JSON string (beautified) from an object.
+            </summary>
+            <param name="obj">The object to be serialized.</param>
+            <param name="param"></param>
+            <returns></returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToJSON(System.Object)">
+            <summary>
+            Creates a JSON representation for an object with the default <see cref="P:fastJSON.JSON.Parameters"/>.
+            </summary>
+            <param name="obj">The object to be serialized.</param>
+            <returns></returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToJSON(System.Object,fastJSON.JSONParameters)">
+            <summary>
+            Creates a JSON representation for an object with parameter override on this call
+            </summary>
+            <param name="obj">The object to be serialized.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control serialization.</param>
+            <returns>The serialized JSON string.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToJSON(System.Object,fastJSON.SerializationManager)">
+            <summary>
+            Creates a JSON representation for an object with serialization manager override on this call
+            </summary>
+            <param name="obj">The object to be serialized.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON serialization.</param>
+            <returns>The serialized JSON string.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToJSON(System.Object,fastJSON.JSONParameters,fastJSON.SerializationManager)">
+            <summary>
+            Creates a JSON representation for an object with parameter and serialization manager override on this call.
+            </summary>
+            <param name="obj">The object to be serialized.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control serialization.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON serialization.</param>
+            <returns>The serialized JSON string.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.Parse(System.String)">
+            <summary>
+            Parses a JSON string and generate a <see cref="T:System.Collections.Generic.Dictionary`2"/> or <see cref="T:System.Collections.Generic.List`1"/> instance.
+            </summary>
+            <param name="json">The object to be parsed.</param>
+            <returns>The parsed object.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToDynamic(System.String)">
+            <summary>
+            Creates a .net4 dynamic object from the JSON string.
+            </summary>
+            <param name="json"></param>
+            <returns></returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject``1(System.String)">
+            <summary>
+            Creates a typed generic object from the JSON with the default <see cref="P:fastJSON.JSON.Parameters"/> and <see cref="T:fastJSON.SerializationManager"/>.
+            </summary>
+            <typeparam name="T">The type of the expected object after deserialization.</typeparam>
+            <param name="json">The JSON string to be deserialized.</param>
+            <returns>The deserialized object of type <typeparamref name="T"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject``1(System.String,fastJSON.JSONParameters)">
+            <summary>
+            Create a typed generic object from the JSON with parameter override on this call.
+            </summary>
+            <typeparam name="T">The type of the expected object after deserialization.</typeparam>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control deserialization.</param>
+            <returns>The deserialized object of type <typeparamref name="T"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject``1(System.String,fastJSON.SerializationManager)">
+            <summary>
+            Create a typed generic object from the JSON with serialization manager override on this call.
+            </summary>
+            <typeparam name="T">The type of the expected object after deserialization.</typeparam>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON deserialization.</param>
+            <returns>The deserialized object of type <typeparamref name="T"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject``1(System.String,fastJSON.JSONParameters,fastJSON.SerializationManager)">
+            <summary>
+            Creates a typed generic object from the JSON with parameter and serialization manager override on this call.
+            </summary>
+            <typeparam name="T">The type of the expected object after deserialization.</typeparam>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control deserialization.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON deserialization.</param>
+            <returns>The deserialized object of type <typeparamref name="T"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject(System.String)">
+            <summary>
+            Creates an object from the JSON with the default <see cref="P:fastJSON.JSON.Parameters"/>.
+            </summary>
+            <param name="json">The JSON string to be deserialized.</param>
+            <returns>The serialized object.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject(System.String,fastJSON.JSONParameters)">
+            <summary>
+            Creates an object from the JSON with parameter override on this call.
+            </summary>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control deserialization.</param>
+            <returns>The deserialized object.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject(System.String,fastJSON.JSONParameters,fastJSON.SerializationManager)">
+            <summary>
+            Creates an object from the JSON with parameter override on this call.
+            </summary>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control deserialization.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON deserialization.</param>
+            <returns>The deserialized object.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject(System.String,System.Type,fastJSON.SerializationManager)">
+            <summary>
+            Creates an object from the JSON with parameter override on this call.
+            </summary>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="type">The type of the expected object after deserialization.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON deserialization.</param>
+            <returns>The deserialized object.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject(System.String,System.Type,fastJSON.JSONParameters,fastJSON.SerializationManager)">
+            <summary>
+            Creates an object from the JSON with parameter override on this call.
+            </summary>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="type">The type of the expected object after deserialization.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control deserialization.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON deserialization.</param>
+            <returns>The deserialized object.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.ToObject(System.String,System.Type)">
+            <summary>
+            Creates an object of type from the JSON with the default <see cref="P:fastJSON.JSON.Parameters"/>.
+            </summary>
+            <param name="json">The JSON string to be deserialized.</param>
+            <param name="type">The type of the expected object after deserialization.</param>
+            <returns>The deserialized object of type <paramref name="type"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.FillObject(System.Object,System.String)">
+            <summary>
+            Fills <paramref name="input" /> with the JSON representation with the default <see cref="P:fastJSON.JSON.Parameters"/>.
+            </summary>
+            <param name="input">The object to contain the result of the deserialization.</param>
+            <param name="json">The JSON representation string to be deserialized.</param>
+            <returns>The <paramref name="input" /> object containing deserialized properties and fields from the JSON string.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.DeepCopy(System.Object)">
+            <summary>
+            Deep-copies an object i.e. clones to a new object.
+            </summary>
+            <param name="obj">The object to be deep copied.</param>
+            <returns>The copy of <paramref name="obj"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.DeepCopy``1(``0)">
+            <summary>
+            Deep-copies an object i.e. clones to a new object.
+            </summary>
+            <typeparam name="T">The type of the object to be copied.</typeparam>
+            <param name="obj">The object to be deep copied.</param>
+            <returns>The copy of <paramref name="obj"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.DeepCopy``1(``0,fastJSON.JSONParameters,fastJSON.SerializationManager)">
+            <summary>
+            Deep-copies an object i.e. clones to a new object.
+            </summary>
+            <typeparam name="T">The type of the object to be copied.</typeparam>
+            <param name="obj">The object to be deep copied.</param>
+            <param name="param">The <see cref="T:fastJSON.JSONParameters"/> to control deserialization.</param>
+            <param name="manager">The <see cref="T:fastJSON.SerializationManager"/> to control advanced JSON deserialization.</param>
+            <returns>The copy of <paramref name="obj"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.Beautify(System.String)">
+            <summary>
+            Creates a human readable string from the JSON. 
+            </summary>
+            <param name="input">The JSON string to be beautified.</param>
+            <returns>A pretty-printed JSON string.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.Beautify(System.String,System.Boolean)">
+            <summary>
+            Create a human readable string from the JSON. 
+            </summary>
+            <param name="input">The JSON string to be beautified.</param>
+            <param name="decodeUnicode">Indicates whether \uXXXX encoded Unicode notations should be converted into actual Unicode characters.</param>
+            <returns>A pretty-printed JSON string.</returns>
+        </member>
+        <member name="M:fastJSON.JSON.RegisterCustomType(System.Type,fastJSON.Serialize,fastJSON.Deserialize)">
+            <summary>
+            Registers custom type handlers for your own types not natively handled by JSON serialization engine.
+            </summary>
+            <param name="type">The type to be handled.</param>
+            <param name="serializer">The delegate to be used in serialization.</param>
+            <param name="deserializer">The delegate to be used in deserialization.</param>
+            <remarks>It is recommended to implement customize serialization with <see cref="T:fastJSON.IJsonConverter"/> and <see cref="T:fastJSON.JsonConverter`2"/> and apply the implementation with <see cref="M:fastJSON.SerializationManager.OverrideConverter``1(fastJSON.IJsonConverter)"/>.</remarks>
+        </member>
+        <member name="M:fastJSON.JSON.ClearReflectionCache">
+            <summary>
+            Clears the internal reflection cache so you can start from new (you will loose performance)
+            </summary>
+        </member>
+        <member name="T:fastJSON.JsonParser">
+            <summary>
+            This class encodes and decodes JSON strings.
+            Spec. details, see http://www.json.org/
+            </summary>
+        </member>
+        <member name="M:fastJSON.Reflection.CreateWrapperMethod``1(System.Reflection.MethodInfo)">
+            <summary>
+            Creates a wrapper delegate for the given method.
+            The delegate should have a similar signature as the <paramref name="method"/>, except that an argument in inserted before the method arguments.
+            </summary>
+            <typeparam name="T">A delegate definition. The first argument of the delegate will be used to invoke the method.</typeparam>
+            <param name="method">The method to be converted to the delegate.</param>
+            <returns>The wrapper delegate to invoke the method.</returns>
+            <example><code><![CDATA[delegate void MyAddMethod (IEnumerable target, object value);
+            Reflection.CreateWrapperMethod<MyAddMethod> (typeof(List<string>).GetMethod("Add"));]]></code></example>
+        </member>
+        <member name="M:fastJSON.Reflection.FindMethod(System.Type,System.String,System.Type[])">
+            <summary>
+            Finds a public instance method with the same name as <paramref name="methodName"/> and having arguments match the <paramref name="argumentTypes"/> in the given <paramref name="type"/>.
+            </summary>
+            <param name="type">The type which contains the method.</param>
+            <param name="methodName">The method to match.</param>
+            <param name="argumentTypes">The types of method arguments. Null value in the array means the corresponding argument can be any type.</param>
+            <returns>The method matches the name and argument types.</returns>
+        </member>
+        <member name="M:fastJSON.ReflectionCache.Instantiate">
+            <summary>
+            Creates an instance of the type by calling its parameterless constructor.
+            </summary>
+            <returns>The created instance.</returns>
+        </member>
+        <member name="T:fastJSON.IMemberInfo">
+            <summary>
+            Contains information about a member, used in reflection phase before serialization.
+            </summary>
+            <preliminary/>
+        </member>
+        <member name="P:fastJSON.IMemberInfo.MemberName">
+            <summary>
+            The name of the field or property.
+            </summary>
+        </member>
+        <member name="P:fastJSON.IMemberInfo.MemberType">
+            <summary>
+            The type of the member.
+            </summary>
+        </member>
+        <member name="P:fastJSON.IMemberInfo.IsProperty">
+            <summary>
+            True if the member is a property, false for a field.
+            </summary>
+        </member>
+        <member name="P:fastJSON.IMemberInfo.IsReadOnly">
+            <summary>
+            Indicates whether the member is read-only. Read-only properties or initialized-only fields returns true.
+            </summary>
+        </member>
+        <member name="P:fastJSON.IMemberInfo.IsStatic">
+            <summary>
+            Indicates whether the member is static.
+            </summary>
+        </member>
+        <member name="P:fastJSON.IMemberInfo.IsPublic">
+            <summary>
+            Indicates whether the member is publicly visible.
+            </summary>
+        </member>
+        <member name="T:fastJSON.MemberCache">
+            <summary>
+            Caches reflection information for a member
+            </summary>
+        </member>
+        <member name="T:fastJSON.JsonReflectionController">
+            <summary>
+            The general implementation of <see cref="T:fastJSON.IReflectionController"/>, which takes custom attributes such as <see cref="T:fastJSON.JsonFieldAttribute"/>, <see cref="T:fastJSON.JsonConverterAttribute"/>, etc. into consideration.
+            </summary>
+            <preliminary />
+        </member>
+        <member name="P:fastJSON.JsonReflectionController.UseDataContractAttributes">
+            <summary>
+            Gets whether <see cref="T:System.Runtime.Serialization.DataContractAttribute"/>, <see cref="T:System.Runtime.Serialization.DataMemberAttribute"/>, etc. attributes in <see cref="N:System.Runtime.Serialization"/> namespace are supported. (default: true)
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonReflectionController.UseXmlSerializationAttributes">
+            <summary>
+            Gets a value indicating whether XML serialization attributes should be used to control serialized field names. (default: false)
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonReflectionController.IgnoreAttributes">
+            <summary>
+            Ignore attributes to check for (default : XmlIgnoreAttribute).
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.#ctor">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.JsonReflectionController"/>. For backward compatibility, <see cref="T:System.Xml.Serialization.XmlIgnoreAttribute"/> is added into <see cref="P:fastJSON.JsonReflectionController.IgnoreAttributes"/>.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.#ctor(System.Boolean)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.JsonReflectionController"/> and sets whether <see cref="P:fastJSON.JsonReflectionController.UseXmlSerializationAttributes"/> option is turned on. For backward compatibility, <see cref="T:System.Xml.Serialization.XmlIgnoreAttribute"/> is added into <see cref="P:fastJSON.JsonReflectionController.IgnoreAttributes"/>.
+            </summary>
+            <param name="useXmlSerializationAttributes">Controls whether <see cref="T:System.Xml.Serialization.XmlElementAttribute"/> and other serialization attributes should be supported to control serialized field names.</param>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.#ctor(System.Boolean,System.Boolean)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.JsonReflectionController"/> and sets whether <see cref="P:fastJSON.JsonReflectionController.UseDataContractAttributes"/> and <see cref="P:fastJSON.JsonReflectionController.UseXmlSerializationAttributes"/> options are turned on. For backward compatibility, <see cref="T:System.Xml.Serialization.XmlIgnoreAttribute"/> is added into <see cref="P:fastJSON.JsonReflectionController.IgnoreAttributes"/>.
+            </summary>
+            <param name="supportContractualAttributes">Controls whether <see cref="T:System.Runtime.Serialization.DataContractAttribute"/> should be supported.</param>
+            <param name="useXmlSerializationAttributes">Controls whether <see cref="T:System.Xml.Serialization.XmlElementAttribute"/> and other serialization attributes should be supported to control serialized field names.</param>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetEnumValueFormat(System.Type)">
+            <summary>
+            This method is called to determine whether the values of the given <see cref="T:System.Enum"/> type should be serialized as its numeric form rather than literal form. The override can be set via the <see cref="T:fastJSON.JsonEnumFormatAttribute"/>.
+            </summary>
+            <param name="type">An <see cref="T:System.Enum"/> value type.</param>
+            <returns>If the type should be serialized numerically, returns true, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetEnumValueName(System.Reflection.MemberInfo)">
+            <summary>
+            Gets the overridden name for an enum value. The overridden name can be set via the <see cref="T:fastJSON.JsonEnumValueAttribute"/>. If null or empty string is returned, the original name of the enum value is used.
+            </summary>
+            <param name="member">The enum value member.</param>
+            <returns>The name of the enum value.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.IsAlwaysDeserializable(System.Type)">
+            <summary>
+            Gets whether the type is always deserializable. The value can be set via <see cref="T:fastJSON.JsonSerializableAttribute"/>.
+            </summary>
+            <param name="type">The type to be deserialized.</param>
+            <returns>Whether the type can be deserialized even if it is a non-public type.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetInterceptor(System.Type)">
+            <summary>
+            Returns the <see cref="T:fastJSON.IJsonInterceptor"/> for given type. If no interceptor, null should be returned. The interceptor can be set via <see cref="T:fastJSON.JsonInterceptorAttribute"/>.
+            </summary>
+            <param name="type">The type to be checked.</param>
+            <returns>The interceptor.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetConverter(System.Type)">
+            <summary>
+            This method is called to get the <see cref="T:fastJSON.IJsonConverter"/> for the type. If no converter, null should be returned. The converter can be set via <see cref="T:fastJSON.JsonConverterAttribute"/>.
+            </summary>
+            <param name="type">The type to be checked for <see cref="T:fastJSON.IJsonConverter"/>.</param>
+            <returns>The interceptor.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetCollectionContainerName(System.Type)">
+            <summary>
+            Gets the name of the collection container for customized types which implement <see cref="T:System.Collections.IEnumerable"/> and have extra members to be serialized.
+            </summary>
+            <param name="type">The <see cref="T:System.Type"/> which implements <see cref="T:System.Collections.IEnumerable"/> and contains extra members to be serialized.</param>
+            <returns>The name of the collection container. If null is returned, no container will be created.</returns>
+            <remarks>By default, the serializer serializes types which implement <see cref="T:System.Collections.IEnumerable"/> interface as JSON arrays.
+            Members of the type will be ignored. And so to the types which implements <see cref="T:System.Collections.IDictionary"/>.
+            To serialize those members, return a non-empty name and the members will be serialized into a field named returned by this method.</remarks>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.IsMemberSerializable(System.Reflection.MemberInfo,fastJSON.IMemberInfo)">
+            <summary>
+            Returns whether the specific member is serializable. This value can be set via <see cref="T:fastJSON.JsonIncludeAttribute"/> and <see cref="P:fastJSON.JsonReflectionController.IgnoreAttributes"/>.
+            If true is returned, the member will always get serialized.
+            If false is returned, the member will be excluded from serialization.
+            If null is returned, the serialization of the member will be determined by the settings in <see cref="T:fastJSON.JSONParameters"/>.
+            </summary>
+            <param name="member">The member to be serialized.</param>
+            <param name="info">Reflection information for the member.</param>
+            <returns>True is returned if the member is serializable, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.IsMemberDeserializable(System.Reflection.MemberInfo,fastJSON.IMemberInfo)">
+            <summary>
+            Gets whether a field or a property is deserializable. If false is returned, the member will be excluded from deserialization. By default, writable fields or properties are deserializable. The value can be set via <see cref="T:System.ComponentModel.ReadOnlyAttribute"/>.
+            </summary>
+            <param name="member">The member to be serialized.</param>
+            <param name="info">Reflection information for the member.</param>
+            <returns>True is returned if the member is serializable, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetSerializedNames(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns possible names for corresponding types of a field or a property. This enables polymorphic serialization and deserialization for abstract classes, interfaces, or object types, with predetermined concrete types. If polymorphic serialization is not used, null or an empty <see cref="T:fastJSON.SerializedNames"/> could be returned. The names can be set via <see cref="T:fastJSON.JsonFieldAttribute"/>.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The dictionary contains types and their corresponding names.</returns>
+            <exception cref="T:System.InvalidCastException">The <see cref="P:fastJSON.JsonFieldAttribute.DataType"/> type does not derive from the member type.</exception>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetNonSerializedValues(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns a series of values that will not be serialized for a field or a property. When the value of the member matches those values, it will not be serialized. If all values can be serialized, null should be returned. The value can be set via <see cref="T:System.ComponentModel.DefaultValueAttribute"/>.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The values which are not serialized for <paramref name="member"/>.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetMemberConverter(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns the <see cref="T:fastJSON.IJsonConverter"/> to convert values for a field or a property during serialization and deserialization. If no converter is used, null can be returned. The converter can be set via <see cref="T:fastJSON.JsonConverterAttribute"/>.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The converter.</returns>
+        </member>
+        <member name="M:fastJSON.JsonReflectionController.GetMemberItemConverter(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns an <see cref="T:fastJSON.IJsonConverter"/> instance to convert item values for a field or a property which is of <see cref="T:System.Collections.IEnumerable"/> type during serialization and deserialization. If no converter is used, null can be returned. The converter can be set via <see cref="T:fastJSON.JsonItemConverterAttribute"/>.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The converter.</returns>
+        </member>
+        <member name="T:fastJSON.DefaultReflectionController">
+            <summary>
+            This is an empty implementation of <see cref="T:fastJSON.IReflectionController"/> doing nothing but serving as a template class for method-overriding.
+            </summary>
+            <preliminary />
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetEnumValueFormat(System.Type)">
+            <summary>
+            This method is called to determine whether the values of the given <see cref="T:System.Enum"/> type should be serialized as its numeric form rather than literal form.
+            </summary>
+            <param name="type">An <see cref="T:System.Enum"/> value type.</param>
+            <returns>If the type should be serialized numerically, returns true, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetEnumValueName(System.Reflection.MemberInfo)">
+            <summary>
+            This method is called to override the serialized name of an enum value. If null or empty string is returned, the original name of the enum value is used.
+            </summary>
+            <param name="member">The enum value member.</param>
+            <returns>The name of the enum value.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.IsAlwaysDeserializable(System.Type)">
+            <summary>
+            This method is called before the constructor of a type is built for deserialization to detect whether the type is deserializable.
+            When this method returns true, the type can be deserialized regardless it is a non-public type.
+            Public types are always deserializable and not affected by the value returned from this method.
+            If the type contains generic parameters (for generic types) or an element type (for array types), the parameters and element types will be checked first.
+            </summary>
+            <param name="type">The type to be deserialized.</param>
+            <returns>Whether the type can be deserialized even if it is a non-public type.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetInterceptor(System.Type)">
+            <summary>
+            This method is called to get the <see cref="T:fastJSON.IJsonInterceptor"/> for the type. If no interceptor, null should be returned.
+            </summary>
+            <param name="type">The type to be checked.</param>
+            <returns>The interceptor.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetConverter(System.Type)">
+            <summary>
+            This method is called to get the <see cref="T:fastJSON.IJsonConverter"/> for the type. If no converter, null should be returned.
+            </summary>
+            <param name="type">The type to be checked for <see cref="T:fastJSON.IJsonConverter"/>.</param>
+            <returns>The interceptor.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetCollectionContainerName(System.Type)">
+            <summary>
+            Gets the name of the collection container for customized types which implement <see cref="T:System.Collections.IEnumerable"/> and have extra members to be serialized.
+            </summary>
+            <param name="type">The <see cref="T:System.Type"/> which implements <see cref="T:System.Collections.IEnumerable"/> and contains extra members to be serialized.</param>
+            <returns>The name of the collection container. If null is returned, no container will be created.</returns>
+            <remarks>By default, the serializer serializes types which implement <see cref="T:System.Collections.IEnumerable"/> interface as JSON arrays.
+            Members of the type will be ignored. And so to the types which implements <see cref="T:System.Collections.IDictionary"/>.
+            To serialize those members, return a non-empty name and the members will be serialized into a field named returned by this method.</remarks>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.IsMemberSerializable(System.Reflection.MemberInfo,fastJSON.IMemberInfo)">
+            <summary>
+            This method is called to determine whether a field or a property is serializable.
+            If false is returned, the member will be excluded from serialization.
+            If true is returned, the member will always get serialized.
+            If null is returned, the serialization of the member will be determined by the settings in <see cref="T:fastJSON.JSONParameters"/>.
+            </summary>
+            <param name="member">The member to be serialized.</param>
+            <param name="info">Reflection information for the member.</param>
+            <returns>False is returned if the member is private, otherwise, null is returned.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.IsMemberDeserializable(System.Reflection.MemberInfo,fastJSON.IMemberInfo)">
+            <summary>
+            This method is called to determine whether a field or a property is deserializable. If false is returned, the member will be excluded from deserialization. By default, writable fields or properties are deserializable.
+            </summary>
+            <param name="member">The member to be serialized.</param>
+            <param name="info">Reflection information for the member.</param>
+            <returns>True is returned if the member is public, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetSerializedNames(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns possible names for corresponding types of a field or a property. This enables polymorphic serialization and deserialization for abstract, interface, or object types, with predetermined concrete types. If polymorphic serialization is not used, null or an empty <see cref="T:fastJSON.SerializedNames"/> could be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The dictionary contains types and their corresponding names.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetNonSerializedValues(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns a series of values that will not be serialized for a field or a property. When the value of the member matches those values, it will not be serialized. If all values can be serialized, null should be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The values which are not serialized for <paramref name="member"/>.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetMemberConverter(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns the <see cref="T:fastJSON.IJsonConverter"/> to convert values for a field or a property during serialization and deserialization. If no converter is used, null can be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The converter.</returns>
+        </member>
+        <member name="M:fastJSON.DefaultReflectionController.GetMemberItemConverter(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns an <see cref="T:fastJSON.IJsonConverter"/> instance to convert item values for a field or a property which is of <see cref="T:System.Collections.IEnumerable"/> type during serialization and deserialization. If no converter is used, null can be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The converter.</returns>
+        </member>
+        <member name="T:fastJSON.IReflectionController">
+            <summary>
+            The controller interface to control type reflections for serialization and deserialization.
+            </summary>
+            <remarks>
+            <para>The interface works in the reflection phase. Its methods are executed typically once and the result will be cached. Consequently, changes occur after the reflection phase will not take effect.</para>
+            <para>It is recommended to inherit from <see cref="T:fastJSON.DefaultReflectionController"/> or <see cref="T:fastJSON.JsonReflectionController"/>.</para>
+            </remarks>
+            <preliminary />
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetEnumValueFormat(System.Type)">
+            <summary>
+            This method is called to determine how to format values of the given <see cref="T:System.Enum"/> type.
+            </summary>
+            <param name="type">An <see cref="T:System.Enum"/> value type.</param>
+            <returns>The format of the enum value.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetEnumValueName(System.Reflection.MemberInfo)">
+            <summary>
+            This method is called to override the serialized name of an enum value. If null or empty string is returned, the original name of the enum value is used.
+            </summary>
+            <param name="member">The enum value member.</param>
+            <returns>The name of the enum value.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.IsAlwaysDeserializable(System.Type)">
+            <summary>
+            This method is called before the constructor of a type is built for deserialization to detect whether the type is deserializable.
+            When this method returns true, the type can be deserialized regardless it is a non-public type.
+            Public types are always deserializable and not affected by the value returned from this method.
+            If the type contains generic parameters (for generic types) or an element type (for array types), the parameters and element types will be checked first.
+            </summary>
+            <param name="type">The type to be deserialized.</param>
+            <returns>Whether the type can be deserialized even if it is a non-public type.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetInterceptor(System.Type)">
+            <summary>
+            This method is called to get the <see cref="T:fastJSON.IJsonInterceptor"/> for the type. If no interceptor, null should be returned.
+            </summary>
+            <param name="type">The type to be checked for <see cref="T:fastJSON.IJsonInterceptor"/>.</param>
+            <returns>The interceptor.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetConverter(System.Type)">
+            <summary>
+            This method is called to get the <see cref="T:fastJSON.IJsonConverter"/> for the type. If no converter, null should be returned.
+            </summary>
+            <param name="type">The type to be checked for <see cref="T:fastJSON.IJsonConverter"/>.</param>
+            <returns>The interceptor.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetCollectionContainerName(System.Type)">
+            <summary>
+            Gets the name of the collection container for customized types which implement <see cref="T:System.Collections.IEnumerable"/> and have extra members to be serialized.
+            </summary>
+            <param name="type">The <see cref="T:System.Type"/> which implements <see cref="T:System.Collections.IEnumerable"/> and contains extra members to be serialized.</param>
+            <returns>The name of the collection container. If null is returned, no container will be created.</returns>
+            <remarks>By default, the serializer serializes types which implement <see cref="T:System.Collections.IEnumerable"/> interface as JSON arrays.
+            Members of those types will be ignored. And so to the types which implements <see cref="T:System.Collections.IDictionary"/>.
+            To serialize those members, return a non-empty name for those types and the members will be serialized into a field with the returned name.</remarks>
+        </member>
+        <member name="M:fastJSON.IReflectionController.IsMemberSerializable(System.Reflection.MemberInfo,fastJSON.IMemberInfo)">
+            <summary>
+            This method is called to determine whether a field or a property is serializable.
+            If false is returned, the member will be excluded from serialization.
+            If true is returned, the member will always get serialized.
+            If null is returned, the serialization of the member will be determined by the settings in <see cref="T:fastJSON.JSONParameters"/>.
+            </summary>
+            <param name="member">The member to be serialized.</param>
+            <param name="info">Reflection information for the member.</param>
+            <returns>True is returned if the member is serializable, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.IsMemberDeserializable(System.Reflection.MemberInfo,fastJSON.IMemberInfo)">
+            <summary>
+            This method is called to determine whether a field or a property is deserializable. If false is returned, the member will be excluded from deserialization. By default, writable fields or properties are deserializable.
+            </summary>
+            <param name="member">The member to be serialized.</param>
+            <param name="info">Reflection information for the member.</param>
+            <returns>True is returned if the member is serializable, otherwise, false.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetSerializedNames(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns possible names for corresponding types of a field or a property. This enables polymorphic serialization and deserialization for abstract, interface, or object types, with predetermined concrete types. If polymorphic serialization is not used, null or an empty dictionary could be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The dictionary contains types and their corresponding names.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetNonSerializedValues(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns a series of values that will not be serialized for a field or a property. When the value of the member matches those values, it will not be serialized. If all values can be serialized, null should be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The values which are not serialized for <paramref name="member"/>.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetMemberConverter(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns an <see cref="T:fastJSON.IJsonConverter"/> instance to convert values for a field or a property during serialization and deserialization. If no converter is used, null can be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The converter.</returns>
+        </member>
+        <member name="M:fastJSON.IReflectionController.GetMemberItemConverter(System.Reflection.MemberInfo)">
+            <summary>
+            This method returns an <see cref="T:fastJSON.IJsonConverter"/> instance to convert item values for a field or a property which is of <see cref="T:System.Collections.IEnumerable"/> type during serialization and deserialization. If no converter is used, null can be returned.
+            </summary>
+            <param name="member">The <see cref="T:System.Reflection.MemberInfo"/> of the field or property.</param>
+            <returns>The converter.</returns>
+        </member>
+        <member name="T:fastJSON.SerializedNames">
+            <summary>
+            Contains the names for a serialized member.
+            </summary>
+            <preliminary />
+        </member>
+        <member name="P:fastJSON.SerializedNames.DefaultName">
+            <summary>
+            Gets the default name for the serialized member.
+            </summary>
+        </member>
+        <member name="T:fastJSON.SafeDictionary`2">
+            <summary>
+            A thread-safe <see cref="T:System.Collections.Generic.IDictionary`2"/>.
+            </summary>
+            <typeparam name="TKey">The type of the dictionary key.</typeparam>
+            <typeparam name="TValue">The type of the dictionary value.</typeparam>
+        </member>
+        <member name="M:fastJSON.SafeDictionary`2.#ctor(System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.SafeDictionary`2"/> class that is empty, has the specified initial capacity, and uses the default equality comparer for the key type.
+            </summary>
+            <param name="capacity"></param>
+        </member>
+        <member name="M:fastJSON.SafeDictionary`2.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.SafeDictionary`2"/> class that is empty, has the default initial capacity, and uses the default equality comparer for the key type.
+            </summary>
+        </member>
+        <member name="M:fastJSON.SafeDictionary`2.Clear">
+            <summary>
+            Clears all items.
+            </summary>
+        </member>
+        <member name="M:fastJSON.SafeDictionary`2.TryGetValue(`0,`1@)">
+            <summary>
+            Gets the value associated with the specified key.
+            </summary>
+            <param name="key">The key of the value to get.</param>
+            <param name="value">When this method returns, contains the value associated with the specified key, if the key is found; otherwise, the default value for the type of the <paramref name="value"/> parameter. This parameter is passed uninitialized. </param>
+            <returns>Returns true if the dictionary contains an element with the specified key; otherwise, false.</returns>
+        </member>
+        <member name="P:fastJSON.SafeDictionary`2.Count">
+            <summary>
+            Gets the number of key/value pairs contained in the dictionary.
+            </summary>
+        </member>
+        <member name="P:fastJSON.SafeDictionary`2.Item(`0)">
+            <summary>
+            Gets or sets the value associated with the specified key.
+            </summary>
+            <param name="key">The key of the value to get or set.</param>
+            <returns>The value associated with the specified key. If the specified key is not found, a get operation throws a <see cref="T:System.Collections.Generic.KeyNotFoundException"/>, and a set operation creates a new element with the specified key.</returns>
+        </member>
+        <member name="M:fastJSON.SafeDictionary`2.Add(`0,`1)">
+            <summary>
+            Adds the specified key and value to the dictionary.
+            </summary>
+            <param name="key">The key of the element to add.</param>
+            <param name="value">The value of the element to add. The value can be null for reference types.</param>
+        </member>
+        <member name="M:fastJSON.SafeDictionary`2.Remove(`0)">
+            <summary>
+            Removes specific key from the dictionary.
+            </summary>
+            <param name="key">The key of the element to remove.</param>
+        </member>
+        <member name="T:fastJSON.JsonSerializableAttribute">
+            <summary>
+            Indicates whether non-public classes, structs, fields or properties could be serialized and deserialized.
+            </summary>
+        </member>
+        <member name="T:fastJSON.JsonIncludeAttribute">
+            <summary>
+            Indicates whether a field or property should be included in serialization.
+            To control whether a field or property should be deserialized, use the <see cref="T:System.ComponentModel.ReadOnlyAttribute"/>.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonIncludeAttribute.Include">
+            <summary>
+            Gets whether the annotated field or property should be included in serialization disregarding whether it is read-only or not. The default value is true.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonIncludeAttribute.#ctor">
+            <summary>
+            Indicates a member should be included in serialization.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonIncludeAttribute.#ctor(System.Boolean)">
+            <summary>
+            Indicates whether a member should be included in serialization.
+            </summary>
+            <param name="include">Indicates whether a member should be included in serialization.</param>
+        </member>
+        <member name="T:fastJSON.JsonFieldAttribute">
+            <summary>
+            Indicates the name and data type of a field or property.
+            The same field or property with multiple <see cref="T:fastJSON.JsonFieldAttribute"/> can have various names mapped to various types.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonFieldAttribute.Name">
+            <summary>
+            Gets the name of the serialized field or property.
+            The case of the serialized name defined in this attribute will not be changed by <see cref="P:fastJSON.JSONParameters.NamingConvention"/> setting in <see cref="T:fastJSON.JSONParameters"/>.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonFieldAttribute.DataType">
+            <summary>
+            Gets the type of the field or property.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonFieldAttribute.#ctor(System.String)">
+            <summary>
+            Specifies the name of the serialized field or property.
+            </summary>
+            <param name="name">The name of the serialized field or property.</param>
+        </member>
+        <member name="M:fastJSON.JsonFieldAttribute.#ctor(System.String,System.Type)">
+            <summary>
+            Specifies the name of the serialized field or property which has a associated type.
+            </summary>
+            <param name="name">The name of the serialized field or property.</param>
+            <param name="dataType">The name is only used when the value is of this data type.</param>
+        </member>
+        <member name="T:fastJSON.JsonTypeAttribute">
+            <summary>
+            Indicates the name of the serialized data type.
+            If unset, the assembly qualified name is used.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonTypeAttribute.Name">
+            <summary>
+            Gets the name of the serialized class.
+            The case of the serialized name defined in this attribute will not be changed by <see cref="P:fastJSON.JSONParameters.NamingConvention"/> setting in <see cref="T:fastJSON.JSONParameters"/>.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonTypeAttribute.#ctor(System.String)">
+            <summary>
+            Specifies the name of the serialized field or property.
+            </summary>
+            <param name="name">The name of the serialized field or property.</param>
+        </member>
+        <member name="T:fastJSON.JsonNonSerializedValueAttribute">
+            <summary>
+            Specifies a value of the annotated member which is hidden from being serialized.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonNonSerializedValueAttribute.Value">
+            <summary>
+            Gets the non-serialized value.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonNonSerializedValueAttribute.#ctor(System.Object)">
+            <summary>
+            Specifies a value of the annotated member which is hidden from being serialized.
+            </summary>
+            <param name="value">The non-serialized value.</param>
+        </member>
+        <member name="T:fastJSON.JsonEnumFormatAttribute">
+            <summary>
+            Indicates the value format of the annotated enum type.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonEnumFormatAttribute.#ctor(fastJSON.EnumValueFormat)">
+            <summary>
+            Specifies the format of an enum type.
+            </summary>
+            <param name="valueFormat">The format of the serialized enum type.</param>
+        </member>
+        <member name="P:fastJSON.JsonEnumFormatAttribute.Format">
+            <summary>
+            Gets the format of the annotated enum type.
+            </summary>
+        </member>
+        <member name="T:fastJSON.JsonEnumValueAttribute">
+            <summary>
+            Controls the serialized name of an Enum value.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonEnumValueAttribute.Name">
+            <summary>
+            Gets the literal name of the Enum value.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonEnumValueAttribute.#ctor(System.String)">
+            <summary>
+            Specifies the serialized name of the annotated Enum value.
+            </summary>
+            <param name="name"></param>
+        </member>
+        <member name="T:fastJSON.JsonInterceptorAttribute">
+            <summary>
+            Controls the object being serialized or deserialized.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonInterceptorAttribute.InterceptorType">
+            <summary>
+            The type of interceptor. The instance of the type should implement <see cref="T:fastJSON.IJsonInterceptor"/>.
+            During serialization and deserialization, an instance of <see cref="T:fastJSON.IJsonInterceptor"/> will be created to process values of the object being serialized or deserialized.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonInterceptorAttribute.#ctor(System.Type)">
+            <summary>
+            Marks a class or a struct to be processed by an <see cref="T:fastJSON.IJsonInterceptor"/>.
+            </summary>
+            <param name="interceptorType">The type of <see cref="T:fastJSON.IJsonInterceptor"/></param>
+            <exception cref="T:fastJSON.JsonSerializationException">The exception will be thrown if the type does not implements <see cref="T:fastJSON.IJsonInterceptor"/>.</exception>
+        </member>
+        <member name="T:fastJSON.JsonConverterAttribute">
+            <summary>
+            Controls data conversion in serialization and deserialization.
+            </summary>
+            <remarks>
+            <para>This attribute can be applied to types or type members.</para>
+            <para>If it is applied to types, the converter will be used in all instances of the type, each property or field that has that data type will use the converter prior to serialization or deserialization.</para>
+            <para>If both the type member and the type has applied this attribute, the attribute on the type member will have a higher precedence.</para>
+            </remarks>
+        </member>
+        <member name="P:fastJSON.JsonConverterAttribute.ConverterType">
+            <summary>
+            <para>The type of converter to convert string to object. The type should implement <see cref="T:fastJSON.IJsonConverter"/>.</para>
+            <para>During serialization and deserialization, an instance of <see cref="T:fastJSON.IJsonConverter"/> will be used to convert values between their original type and target type.</para>
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonConverterAttribute.#ctor(System.Type)">
+            <summary>
+            Marks the value of a field or a property to be converted by an <see cref="T:fastJSON.IJsonConverter"/>.
+            </summary>
+            <param name="converterType">The type of the <see cref="T:fastJSON.IJsonConverter"/>.</param>
+            <exception cref="T:fastJSON.JsonSerializationException">Exception can be thrown if the type does not implements <see cref="T:fastJSON.IJsonConverter"/>.</exception>
+        </member>
+        <member name="T:fastJSON.JsonItemConverterAttribute">
+            <summary>
+            Controls data conversion of <see cref="T:System.Collections.IEnumerable"/> items in serialization and deserialization.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonItemConverterAttribute.ConverterType">
+            <summary>
+            <para>The type of converter to convert string to object. The type should implement <see cref="T:fastJSON.IJsonConverter"/>.</para>
+            <para>During serialization and deserialization, an instance of <see cref="T:fastJSON.IJsonConverter"/> will be used to convert values between their original type and target type.</para>
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonItemConverterAttribute.#ctor(System.Type)">
+            <summary>
+            Marks the item value of a field or a property to be converted by an <see cref="T:fastJSON.IJsonConverter"/>.
+            </summary>
+            <param name="converterType">The type of the <see cref="T:fastJSON.IJsonConverter"/>.</param>
+            <exception cref="T:fastJSON.JsonSerializationException">Exception can be thrown if the type does not implements <see cref="T:fastJSON.IJsonConverter"/>.</exception>
+        </member>
+        <member name="T:fastJSON.JsonCollectionAttribute">
+            <summary>
+            Denotes a type which implements <see cref="T:System.Collections.IEnumerable"/> should be serialized with its members and items being placed to a field named by this attribute.
+            </summary>
+        </member>
+        <member name="P:fastJSON.JsonCollectionAttribute.Name">
+            <summary>
+            Gets the name of the container.
+            </summary>
+        </member>
+        <member name="M:fastJSON.JsonCollectionAttribute.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:fastJSON.JsonCollectionAttribute"/> class.
+            </summary>
+            <param name="name">The name of the container.</param>
+        </member>
+        <member name="T:fastJSON.SerializationManager">
+            <summary>
+            A class controls special serialization for specified types and members.
+            </summary>
+            <remarks>
+            <para>This class can be used to control serialization and deserialization for specified types and members.</para>
+            <para>The overriding methods, such as <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/>, <see cref="M:fastJSON.SerializationManager.OverrideMemberName``1(System.String,System.String)"/>, etc., must be called before serialization or deserialization. Otherwise, inconsistent serialization results may occur between types.</para>
+            </remarks>
+            <preliminary />
+        </member>
+        <member name="P:fastJSON.SerializationManager.ReflectionController">
+            <summary>
+            Returns the <see cref="T:fastJSON.IReflectionController"/> currently used by the <see cref="T:fastJSON.SerializationManager"/>.
+            </summary>
+        </member>
+        <member name="F:fastJSON.SerializationManager.Instance">
+            <summary>
+            Gets the singleton instance.
+            </summary>
+        </member>
+        <member name="M:fastJSON.SerializationManager.#ctor">
+            <summary>
+            Creates a new instance of <see cref="T:fastJSON.SerializationManager"/>.
+            </summary>
+            <remarks>The <see cref="P:fastJSON.SerializationManager.ReflectionController"/> will be initialized to a new instance of <see cref="T:fastJSON.JsonReflectionController"/>.</remarks>
+        </member>
+        <member name="M:fastJSON.SerializationManager.#ctor(fastJSON.IReflectionController)">
+            <summary>
+            Creates a new instance of <see cref="T:fastJSON.SerializationManager"/> with a specific <see cref="T:fastJSON.IReflectionController"/>.
+            </summary>
+            <param name="controller">The controller to control object reflections before serialization.</param>
+        </member>
+        <member name="M:fastJSON.SerializationManager.ResetCache">
+            <summary>
+            Clears all cached reflection information.
+            </summary>
+        </member>
+        <member name="M:fastJSON.SerializationManager.RegisterCustomType(System.Type,fastJSON.Serialize,fastJSON.Deserialize)">
+            <summary>
+            <para>Registers custom type handlers for <paramref name="type"/> not natively handled by fastJSON.</para>
+            <para>NOTICE: This method will call <see cref="M:fastJSON.SerializationManager.ResetCache"/> to make the custom serializer effective. All reflection overrides will be lost after that.</para>
+            </summary>
+            <param name="type">The type to be handled.</param>
+            <param name="serializer">The delegate to be used in serialization.</param>
+            <param name="deserializer">The delegate to be used in deserialization.</param>
+        </member>
+        <member name="M:fastJSON.SerializationManager.SetTypeAlias(System.Collections.Generic.Dictionary{System.Type,System.String})">
+            <summary>
+            Sets user-defined type aliases for serialized types
+            This method is similar to <see cref="M:fastJSON.SerializationManager.RegisterTypeAlias(System.Collections.Generic.List{System.Type})" />, but allows for better flexiblility by relying on strings provided at runtime as part of its argument rather than fixed class attributes.
+            </summary>
+            <param name="list">List of types to be substituted along with their corresponding type name strings</param>
+        </member>
+        <member name="M:fastJSON.SerializationManager.RegisterTypeAlias(System.Collections.Generic.List{System.Type})">
+            <summary>
+            Sets user-defined type aliases for serialized types using the <see cref="T:fastJSON.JsonTypeAttribute"/>.
+            </summary>
+            <param name="list">List of types to be aliased</param>
+        </member>
+        <member name="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)">
+            <summary>
+            Overrides reflection result with <see cref="T:fastJSON.TypeOverride"/> for the <typeparamref name="T"/> type. If the type is already overridden, either automatically or manually, the <paramref name="overrideInfo"/> will merged into the existing reflected info.
+            </summary>
+            <typeparam name="T">The type to be overridden.</typeparam>
+            <param name="overrideInfo">The override info of the type.</param>
+            <seealso cref="M:fastJSON.SerializationManager.Override(System.Type,fastJSON.TypeOverride,System.Boolean)"/>
+        </member>
+        <member name="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride,System.Boolean)">
+            <summary>
+            Overrides reflection result with <see cref="T:fastJSON.TypeOverride"/> for the <typeparamref name="T"/> type.
+            </summary>
+            <typeparam name="T">The type to be overridden.</typeparam>
+            <param name="overrideInfo">The override info of the type.</param>
+            <param name="purgeExisting">If this value is true, the reflection engine will reflect the type again and apply the <paramref name="overrideInfo"/>, otherwise, <paramref name="overrideInfo"/> is merged into the existing reflection cache.</param>
+            <seealso cref="M:fastJSON.SerializationManager.Override(System.Type,fastJSON.TypeOverride,System.Boolean)"/>
+        </member>
+        <member name="M:fastJSON.SerializationManager.Override(System.Type,fastJSON.TypeOverride,System.Boolean)">
+            <summary>
+            Overrides reflection result with <see cref="T:fastJSON.TypeOverride"/> for the specific type and optionally purge existing overrides.
+            </summary>
+            <param name="type">The type to be overridden.</param>
+            <param name="overrideInfo">The override info of the type.</param>
+            <param name="purgeExisting">If this value is true, the reflection engine will reflect the type again and apply the <paramref name="overrideInfo"/>, otherwise, <paramref name="overrideInfo"/> is merged into the existing reflection cache.</param>
+            <remarks>
+            <para>At this moment, the override only affects the registered type.</para>
+            <para>If a class has its subclasses, the override will not be applied to its subclasses.</para>
+            </remarks>
+            <exception cref="T:System.ArgumentNullException">The parameter <paramref name="type"/> or <paramref name="overrideInfo"/> is null.</exception>
+            <exception cref="T:System.MissingMemberException">No member is found for a <see cref="T:fastJSON.MemberOverride"/> in <paramref name="overrideInfo"/>.</exception>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideInterceptor``1(fastJSON.IJsonInterceptor)">
+            <summary>
+            <para>Assigns an <see cref="T:fastJSON.IJsonInterceptor"/> to process a specific type.</para>
+            <para>This is a simplified version of <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method replacing the <see cref="T:fastJSON.IJsonInterceptor"/> of a type.</para>
+            </summary>
+            <typeparam name="T">The type to be processed by the interceptor.</typeparam>
+            <param name="interceptor">The interceptor to intercept the serialization and deserialization.</param>
+            <remarks>If the type has already gotten an <see cref="T:fastJSON.IJsonInterceptor"/>, the new <paramref name="interceptor"/> will replace it. If the new interceptor is null, existing interceptor will be removed from the type.</remarks>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideInterceptor(System.Type,fastJSON.IJsonInterceptor)">
+            <summary>
+            <para>Assigns an <see cref="T:fastJSON.IJsonInterceptor"/> to process a specific type.</para>
+            <para>This is a simplified version of <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method replacing the <see cref="T:fastJSON.IJsonInterceptor"/> of a type.</para>
+            </summary>
+            <param name="type">The type to be processed by the interceptor.</param>
+            <param name="interceptor">The interceptor to intercept the serialization and deserialization.</param>
+            <remarks>If the type has already gotten an <see cref="T:fastJSON.IJsonInterceptor"/>, the new <paramref name="interceptor"/> will replace it. If the new interceptor is null, existing interceptor will be removed from the type.</remarks>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideConverter``1(fastJSON.IJsonConverter)">
+            <summary>
+            <para>Assigns an <see cref="T:fastJSON.IJsonConverter"/> to process a specific type.</para>
+            <para>This is a simplified version of <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method replacing the <see cref="T:fastJSON.IJsonConverter"/> of a type.</para>
+            </summary>
+            <typeparam name="T">The type to be processed by the interceptor.</typeparam>
+            <param name="converter">The converter to convert instances of type before the serialization and deserialization.</param>
+            <remarks>If the type has already gotten an <see cref="T:fastJSON.IJsonConverter"/>, the new <paramref name="converter"/> will replace it.
+            If the new converter is null, existing converter will be removed from the type.</remarks>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideMemberName``1(System.String,System.String)">
+            <summary>
+            <para>Assigns the serialized name of a field or property.</para>
+            <para>This is a simplified version of <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method replacing the serialized name of a member.</para>
+            </summary>
+            <typeparam name="T">The type containing the member.</typeparam>
+            <param name="memberName">The name of the field or property.</param>
+            <param name="serializedName">The serialized name of the member.</param>
+            <remarks>If <paramref name="serializedName"/> is null or <see cref="F:System.String.Empty"/>, the field or property name will be used.</remarks>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideMemberName(System.Type,System.String,System.String)">
+            <summary>
+            <para>Assigns the serialized name of a field or property.</para>
+            <para>This is a simplified version of <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method replacing the serialized name of a member.</para>
+            </summary>
+            <param name="type">The type containing the member.</param>
+            <param name="memberName">The name of the field or property.</param>
+            <param name="serializedName">The serialized name of the member.</param>
+            <remarks>If <paramref name="serializedName"/> is null or <see cref="F:System.String.Empty"/>, the field or property name will be used.</remarks>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideMemberConverter(System.Type,System.String,fastJSON.IJsonConverter)">
+            <summary>
+            <para>Assigns an <see cref="T:fastJSON.IJsonConverter"/> to convert the value of the specific member.</para>
+            <para>This is a simplified version of <see cref="M:fastJSON.SerializationManager.Override``1(fastJSON.TypeOverride)"/> method replacing the <see cref="T:fastJSON.IJsonConverter"/> of a member.</para>
+            </summary>
+            <param name="type">The type containing the member.</param>
+            <param name="memberName">The member to be assigned.</param>
+            <param name="converter">The converter to process the member value.</param>
+            <remarks>If the member has already gotten an <see cref="T:fastJSON.IJsonConverter"/>, the new <paramref name="converter"/> will replace it.
+            If the new converter is null, existing converter will be removed from the type.</remarks>
+            <exception cref="T:System.MissingMemberException">No field or property matches <paramref name="memberName"/> in <paramref name="type"/>.</exception>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideEnumValueNames``1(System.Collections.Generic.IDictionary{System.String,System.String})">
+            <summary>
+            Assigns new name mapping for an Enum type <typeparamref name="T"/>.
+            </summary>
+            <typeparam name="T">The type of the Enum.</typeparam>
+            <param name="nameMapper">The value mapper for the enum type <typeparamref name="T"/>.
+            The key of the dictionary is the original name of the enum value to be overridden, the value is the new serialized name to be specified to the value.</param>
+            <exception cref="T:System.InvalidOperationException"><typeparamref name="T"/> is not an Enum type.</exception>
+        </member>
+        <member name="M:fastJSON.SerializationManager.OverrideEnumValueNames(System.Type,System.Collections.Generic.IDictionary{System.String,System.String})">
+            <summary>
+            Assigns new name mapping for an Enum type <paramref name="type"/>.
+            </summary>
+            <param name="type">The type of the Enum.</param>
+            <param name="nameMapper">The Enum value mapper.
+            The key of the dictionary is the original name of the enum value to be overridden, the value is the new serialized name to be specified to the value.</param>
+            <exception cref="T:System.InvalidOperationException"><paramref name="type"/> is not an Enum type.</exception>
+        </member>
+        <member name="T:fastJSON.TypeOverride">
+            <summary>
+            Contains reflection overriding information, used in type reflection phase before serialization or deserialization.
+            </summary>
+            <seealso cref="T:fastJSON.SerializationManager"/>
+            <preliminary />
+        </member>
+        <member name="P:fastJSON.TypeOverride.Deserializable">
+            <summary>
+            Specifies whether the type is deserializable disregarding its visibility.
+            </summary>
+        </member>
+        <member name="P:fastJSON.TypeOverride.Interceptor">
+            <summary>
+            Gets or sets the <see cref="T:fastJSON.IJsonInterceptor"/> for the overridden type.
+            </summary>
+        </member>
+        <member name="P:fastJSON.TypeOverride.Converter">
+            <summary>
+            Gets or sets the <see cref="T:fastJSON.IJsonConverter"/> for the overridden type.
+            </summary>
+        </member>
+        <member name="P:fastJSON.TypeOverride.CollectionContainer">
+            <summary>
+            Gets or sets the name of the container for the overridden type which implements <see cref="T:System.Collections.IEnumerable"/> or <see cref="T:System.Collections.IDictionary"/>.
+            </summary>
+        </member>
+        <member name="P:fastJSON.TypeOverride.MemberOverrides">
+            <summary>
+            Gets the override information for members.
+            </summary>
+        </member>
+        <member name="T:fastJSON.MemberOverride">
+            <summary>
+            Contains reflection override settings for a member.
+            </summary>
+            <seealso cref="T:fastJSON.SerializationManager"/>
+            <seealso cref="T:fastJSON.TypeOverride"/>
+            <preliminary />
+        </member>
+        <member name="P:fastJSON.MemberOverride.MemberName">
+            <summary>
+            Gets the name of the overridden member.
+            </summary>
+        </member>
+        <member name="P:fastJSON.MemberOverride.SerializedName">
+            <summary>
+            Gets or sets the serialized name for the member.
+            </summary>
+        </member>
+        <member name="P:fastJSON.MemberOverride.TypedNames">
+            <summary>
+            Gets the polymorphic serialization for the member.
+            The item key is the type and the item value is the serialized name corresponding to the type.
+            The type should derive from the type of the member.
+            </summary>
+        </member>
+        <member name="P:fastJSON.MemberOverride.Serializable">
+            <summary>
+            Gets or sets whether the member is always serialized (true), never serialized (false) or compliant to the existing behavior (null).
+            </summary>
+        </member>
+        <member name="P:fastJSON.MemberOverride.Deserializable">
+            <summary>
+            Gets or sets whether the member can be deserialized (true), never deserialized (false) or compliant to the existing behavior (null).
+            </summary>
+        </member>
+        <member name="P:fastJSON.MemberOverride.NonSerializedValues">
+            <summary>
+            Gets the values of the member that should not be serialized.
+            </summary>
+        </member>
+        <member name="P:fastJSON.MemberOverride.Converter">
+            <summary>
+            Gets or sets the <see cref="T:fastJSON.IJsonConverter"/> for the member.
+            </summary>
+            <remarks>If the member has a converter before the override, and the value of this converter is null, existing converter will be removed after the override.</remarks>
+        </member>
+        <member name="P:fastJSON.MemberOverride.ItemConverter">
+            <summary>
+            Gets or sets the <see cref="T:fastJSON.IJsonConverter"/> for the item of an <see cref="T:System.Collections.IEnumerable"/> member.
+            </summary>
+            <remarks>If the member has an item converter before the override, and the value of this converter is null, existing converter will be removed after the override.</remarks>
+        </member>
+        <member name="M:fastJSON.MemberOverride.#ctor(System.String)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.MemberOverride"/>.
+            </summary>
+            <param name="memberName">The name of the member.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="memberName"/> is null or an empty string.</exception>
+        </member>
+        <member name="M:fastJSON.MemberOverride.#ctor(System.String,System.Nullable{System.Boolean})">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.MemberOverride"/>, setting the <see cref="P:fastJSON.MemberOverride.Serializable"/> property.
+            </summary>
+            <param name="memberName">The name of the member.</param>
+            <param name="serializable">Whether the member should be serialized.</param>
+        </member>
+        <member name="M:fastJSON.MemberOverride.#ctor(System.String,System.Nullable{System.Boolean},System.Nullable{System.Boolean})">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.MemberOverride"/>, setting the <see cref="P:fastJSON.MemberOverride.Serializable"/> property and <see cref="P:fastJSON.MemberOverride.Deserializable"/> property.
+            </summary>
+            <param name="memberName">The name of the member.</param>
+            <param name="serializable">How the member is serialized.</param>
+            <param name="deserializable">Whether the member should be deserialized.</param>
+        </member>
+        <member name="M:fastJSON.MemberOverride.#ctor(System.String,fastJSON.IJsonConverter)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.MemberOverride"/>, setting the <see cref="P:fastJSON.MemberOverride.Converter"/> property.
+            </summary>
+            <param name="memberName">The name of the member.</param>
+            <param name="converter">The converter.</param>
+        </member>
+        <member name="M:fastJSON.MemberOverride.#ctor(System.String,System.String)">
+            <summary>
+            Creates an instance of <see cref="T:fastJSON.MemberOverride"/>, setting the <see cref="P:fastJSON.MemberOverride.SerializedName"/> property.
+            </summary>
+            <param name="memberName">The name of the member.</param>
+            <param name="serializedName">The serialized name of the member.</param>
+        </member>
+    </members>
+</doc>

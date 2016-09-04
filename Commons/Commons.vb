@@ -35,6 +35,20 @@ Namespace Structures
     End Structure
 
     <Serializable()>
+    Public Structure QueryStruc                             ' Query request against data or state store
+        Public Property Func As String
+        Public Property StartDateTime As Long               ' .NET UTC time format
+        Public Property EndDateTime As Long
+        Public Property TimeFrame As String
+        Public Property ValCond As String
+        Public Property Cat As String
+        Public Property ClassName As String
+        Public Property Instance As String
+        Public Property Scope As String
+        Public Property Data As String
+    End Structure
+
+    <Serializable()>
     Public Structure PlugStruc
         Public Category As String
         Public ClassName As String

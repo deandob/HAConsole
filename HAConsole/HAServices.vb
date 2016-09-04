@@ -1,5 +1,4 @@
 ﻿' Library Imports (add references to the the bin\lib directory)
-'Imports Alchemy                 ' Websockets library
 Imports System.Data.SQLite                  ' SQLite RDBMS
 Imports Commons                 ' Common interfaces and structures for HA Server & plugins
 
@@ -15,6 +14,8 @@ Imports System.Collections.Concurrent
 Imports HAConsole.HAUtils
 Imports fastJSON
 Imports System.Text.RegularExpressions
+
+' Note: DateTime is always sent and received in UTC DotNet LONG format.
 
 Namespace HAServices
 
@@ -113,8 +114,13 @@ Namespace HAServices
                 If Not File.Exists(Path.Combine(DataDir, "settings.ini")) Then
                     Directory.CreateDirectory(DataDir)
                     File.Copy(Path.Combine({Environment.CurrentDirectory, "..", "..", "settings.template"}), Path.Combine(DataDir, "settings.ini"))
+                    WriteConsole(True, "Settings.ini created in " + DataDir + ". Edit settings.ini in this directory to change server settings.")
+                End If
+
+                If Not File.Exists(Path.Combine(DataDir, "clients.ini")) Then
+                    Directory.CreateDirectory(DataDir)
                     File.Copy(Path.Combine({Environment.CurrentDirectory, "..", "..", "clients.template"}), Path.Combine(DataDir, "clients.ini"))
-                    WriteConsole(True, "First time setup. Data directory, clients.ini and settings.ini created in " + DataDir + ". Edit settings.ini in this directory to change server settings.")
+                    WriteConsole(True, "Clients.ini created in " + DataDir + ".")
                 End If
 
                 WriteConsole(True, "Starting automation services...")
@@ -499,7 +505,7 @@ Namespace HAServices
                                     Case Is = "HISTORY"
                                         Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = ProcessGetHistory(myMessage.Scope, CLng(myMessage.Data.Split(","c)(0)), CLng(myMessage.Data.Split(","c)(1)))      ' Send message back to client with data in datatable
                                         HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
-                                    Case Is = "QUERY"   ' send("QUERY", cat, type +":" + className + "(" + conditions + ")", channel)
+                                    Case Is = "QUERY"
                                         Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = ProcessGetQuery(myMessage.Scope, myMessage.Data)      ' Send message back to client with data in datatable
                                         HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
                                     Case Is = "CONSOLE"
@@ -606,7 +612,6 @@ Namespace HAServices
                             Automation.AutomationEvents(myMessage)                                                                           ' Process automation events by checking triggers (invoked by all events except timer, timer 1 min checks will also run this routine)
                             Automation.Transform(myMessage)                                                                           ' Process transform events to create new events based on saved transforms
                             SendtoPlugin(myMessage)                                                                                     ' Plugins can action if needed
-                            'SetStoreState(myMessage)                                                                                    ' Update the state store
                             SendtoSubscribers(myMessage)
                             WriteConsole(False, "Cat:" + myMessage.Category.ToString + " Class:" + myMessage.ClassName + " Instance:" + myMessage.Instance + " Scope:" + myMessage.Scope + " Data:" + myMessage.Data)
                         Else                                                                                                        ' Timer events
@@ -763,9 +768,87 @@ Namespace HAServices
         End Function
 
         ' Get query result from logs
-        Private Function ProcessGetQuery(Cmd As String, Data As String) As List(Of Object)
+        Private Function ProcessGetQuery(Scope As String, Data As String) As List(Of Object)
             'TODO: Consolidate with ProcessGetHistory which is a subset of this.
-            'type:category/class/instance(TIMEFRAME[start,finish])
+            Dim objQuery = JSON.ToObject(Of Structures.QueryStruc)(Data)
+
+            Dim StartDateTime As Long = objQuery.StartDateTime                              ' Convert Javascript time to WIndows Time
+            Dim FinishDateTime As Long = objQuery.EndDateTime
+            Dim GetColl As New List(Of Object)
+            Dim ResTest As Integer = HAConst.TestCond.EQUALS
+            Select Case objQuery.ValCond.ToUpper()
+                Case Is = "EQUALS"
+                    ResTest = HAConst.TestCond.EQUALS
+                Case Is = "GREATER"
+                    ResTest = HAConst.TestCond.GREATER_THAN
+                Case Is = "LESS"
+                    ResTest = HAConst.TestCond.LESS_THAN
+                Case Is = "NOT"
+                    ResTest = HAConst.TestCond.NOT_EQUAL
+                Case Is = "CONTAINS"
+                    ResTest = HAConst.TestCond.CONTAINS
+                Case Is = "CHANGE"
+                    ResTest = HAConst.TestCond.CHANGE
+            End Select
+            Dim ResMsg As New Commons.Structures.HAMessageStruc
+            ResMsg.Network = GlobalVars.myNetNum
+
+            Select Case Scope.ToUpper()
+                Case Is = "WHAT", "WHEN", "VALUE"
+                    If objQuery.TimeFrame.ToUpper = "CURRENT" Then       ' Use current state from statestore
+                        Dim SearchMsg As New Structures.HAMessageStruc With {.Network = GlobalVars.myNetNum, .Category = objQuery.Cat, .ClassName = objQuery.ClassName.ToUpper(), .Instance = objQuery.Instance.ToUpper(), .Scope = objQuery.Scope.ToUpper(), .Data = objQuery.Data.ToUpper()}
+                        Dim RetSearch = SearchStoreStates(SearchMsg)
+
+                        For Each KeyMsg As KeyValuePair(Of Structures.StateStoreKey, String) In RetSearch
+                            With ResMsg
+                                .Time = Date.UtcNow
+                                .Category = KeyMsg.Key.Category
+                                .ClassName = KeyMsg.Key.ClassName
+                                .Instance = KeyMsg.Key.Instance
+                                .Scope = KeyMsg.Key.Scope
+                                .Data = KeyMsg.Value
+                            End With
+                            If objQuery.Data = "" Then
+                                GetColl.Add(ResMsg)
+                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), KeyMsg.Value) Then         ' ElseIf for performance (when data = "" avoids testdata function)
+                                GetColl.Add(ResMsg)
+                            End If
+                        Next
+                    Else                ' Get history from logs
+                        Dim CondStr = ""
+                        If objQuery.ClassName <> "" Then CondStr = "CLASS='" + objQuery.ClassName.ToUpper() + "' AND "
+                        If objQuery.Instance <> "" Then CondStr = CondStr + "INSTANCE='" + objQuery.Instance.ToUpper() + "' AND "
+                        If objQuery.Data <> "" Then CondStr = CondStr + "DATA='" + objQuery.Data.ToUpper() + "' AND "
+                        CondStr = CondStr + "TIME BETWEEN " + StartDateTime.ToString() + " AND " + FinishDateTime.ToString()
+                        Dim dt As DataTable = New DataTable()
+                        Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
+                        ' Get all matching records in the timerange
+                        ' TODO: Cater for 'ALL' categories
+                        Dim getRows As DataRow() = GetLogs("TIME,CLASS,INSTANCE,SCOPE,DATA", CondStr, GetCatNum(objQuery.Cat) - 1, "TIME DESC")   ' CATER FOR 'ALL' CAT
+
+                        For Each rowNum In getRows
+                            With ResMsg
+                                .Time = Date.UtcNow
+                                .Category = CStr(rowNum.Item("CATEGORY"))
+                                .ClassName = CStr(rowNum.Item("CLASS"))
+                                .Instance = CStr(rowNum.Item("INSTANCE"))
+                                .Scope = CStr(rowNum.Item("SCOPE"))
+                                .Data = CStr(rowNum.Item("DATA"))
+                            End With
+                            If objQuery.Data = "" Or Automation.TestData(ResTest, objQuery.Data.ToUpper(), ResMsg.Data) Then GetColl.Add(ResMsg)
+                        Next
+                    End If
+                Case Is = "TIME"
+                Case Is = "VALUE"
+            End Select
+
+            Return GetColl
+        End Function
+
+        ' Get query result from logs    TEST ***************
+        Private Function ProcessGetQuery1(Cmd As String, Data As String) As List(Of Object)
+            'TODO: Consolidate with ProcessGetHistory which is a subset of this.
+            'type:category/class/instance(TIMEFRAME[start,finish])  data = <condition>|<value>
             Dim CmdSplit = Cmd.Split(":"c)
             Dim CatSplit = CmdSplit(1).Split("/"c)
             Dim InstanceSplit = CatSplit(2).Split("("c)
@@ -792,7 +875,6 @@ Namespace HAServices
                 Case Is = "CHANGE"
                     ResTest = HAConst.TestCond.CHANGE
             End Select
-            Dim CondStr = ""
             Dim ResMsg As New Commons.Structures.HAMessageStruc
             Select Case CmdSplit(0)
                 Case Is = "INSTANCE"
@@ -803,7 +885,7 @@ Namespace HAServices
                         For Each KeyMsg As KeyValuePair(Of Structures.StateStoreKey, String) In RetSearch
                             With ResMsg
                                 .Time = Date.UtcNow
-                                .Network = GetNetNum(KeyMsg.Key.Network)
+                                .Network = GlobalVars.myNetNum
                                 .Category = KeyMsg.Key.Category
                                 .ClassName = KeyMsg.Key.ClassName
                                 .Instance = KeyMsg.Key.Instance
@@ -812,41 +894,39 @@ Namespace HAServices
                             End With
                             If Datatest(1) = "" Or Automation.TestData(ResTest, Datatest(1), KeyMsg.Value) Then GetColl.Add(ResMsg)
                         Next
-                        Return GetColl
-                    Else
-                        'CondStr = "CLASS='" + ClassSplit(1) + "' AND INSTANCE='" + Instance + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
+                    Else                ' Get history from logs
+                        Dim CondStr = ""
+                        If CatSplit(1) <> "" Then CondStr = "CLASS='" + CatSplit(1) + "' AND "
+                        If InstanceSplit(0) <> "" Then CondStr = CondStr + "INSTANCE='" + InstanceSplit(0) + "' AND "
+                        If Data <> "" Then CondStr = CondStr + "DATA='" + Data + "' AND "
+                        CondStr = CondStr + "TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
+                        Dim dt As DataTable = New DataTable()
+                        Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
+                        ' Get all matching records in the timerange
+                        Dim getRows As DataRow() = GetLogs("TIME,CLASS,INSTANCE,SCOPE,DATA", CondStr, GetCatNum(CatSplit(0)) - 1, "TIME DESC")   ' CATER FOR 'ALL' CAT
+                        'If IsNothing(getRows) Then Return Nothing
+
+                        ' Can't compress dataset as time will be unique for each record
+                        For Each rowNum In getRows
+                            With ResMsg
+                                .Time = Date.UtcNow
+                                .Network = GlobalVars.myNetNum
+                                .Category = CStr(rowNum.Item("CATEGORY"))
+                                .ClassName = CStr(rowNum.Item("CLASS"))
+                                .Instance = CStr(rowNum.Item("INSTANCE"))
+                                .Scope = CStr(rowNum.Item("SCOPE"))
+                                .Data = CStr(rowNum.Item("DATA"))
+                            End With
+                            If Datatest(1) = "" Or Automation.TestData(ResTest, Datatest(1), ResMsg.Data) Then GetColl.Add(ResMsg)
+                        Next
                     End If
                 Case Is = "TIME"
                 Case Is = "VALUE"
             End Select
 
-            Dim dt As DataTable = New DataTable()
-            Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
-            ' Get all matching records in the timerange
-            Dim getRows As DataRow() = GetLogs("TIME,CLASS,INSTANCE,SCOPE,DATA", CondStr, GetCatNum(CatSplit(0)) - 1, "TIME DESC")   ' **** CATER FOR 'ALL' CAT
-            If IsNothing(getRows) Then Return Nothing
-
-            ' Can't compress dataset as time will be unique for each record
-            For Each rowNum In getRows
-                GetColl.Add(rowNum(0).ToString() + "," + rowNum(1).ToString())
-            Next
-            'For rowNum = 0 To getRows.Length - 1
-            'If rowNum <> 0 And rowNum <> (getRows.Length - 1) Then              'only add if the previous or next record is different to compress dataset
-            'If getRows(rowNum)(1).ToString() <> getRows(rowNum - 1)(1).ToString() Or getRows(rowNum)(1).ToString() <> getRows(rowNum + 1)(1).ToString() Then GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-            'Else
-            'GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-            'End If
-            'Next
-            'Dim record, oldY As String
-            'For Each dr As DataRow In getRows
-            '    record = dr(0).ToString + "," + dr(1).ToString
-            '    If oldY <> dr(1).ToString Then GetColl.Add(record)
-            '    oldY = dr(1).ToString
-            '    'Dim DictRow As Dictionary(Of String, Object) = dr.Table.Columns.Cast(Of DataColumn)().ToDictionary(Function(col) col.ColumnName, Function(col) dr.Field(Of Object)(col.ColumnName))
-            '    'GetColl.Add(DictRow)
-            'Next
             Return GetColl
         End Function
+
 
         ' Get history array of previous channel data from logs
         Private Function ProcessGetHistory(channel As String, start As Long, finish As Long) As List(Of Object)
@@ -854,10 +934,9 @@ Namespace HAServices
             Dim dt As DataTable = New DataTable()
             Dim da As SQLite.SQLiteDataAdapter = New SQLite.SQLiteDataAdapter
             ' Get all matching records in the timerange
-
+            'TODO: Change time received to UTC DOTNET time (remove FromJSTime conversion)
             Dim StartTime As Long = HAUtils.FromJSTIme(start)                              ' Convert Javascript time to WIndows Time
             Dim FinishTime As Long = HAUtils.FromJSTIme(finish)
-            'Dim CondStr As String = "CATEGORY=" + CStr(GetCatNum(ChSplit(0))) + " AND CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
             Dim CondStr As String = "CLASS='" + ChSplit(1) + "' AND INSTANCE='" + ChSplit(2) + "' AND TIME BETWEEN " + StartTime.ToString() + " AND " + FinishTime.ToString()
             Dim getRows As DataRow() = GetLogs("TIME,DATA", CondStr, GetCatNum(ChSplit(0)) - 1, "TIME DESC")
             Dim GetColl As New List(Of Object)
@@ -867,21 +946,6 @@ Namespace HAServices
             For Each rowNum In getRows
                 GetColl.Add(rowNum(0).ToString() + "," + rowNum(1).ToString())
             Next
-            'For rowNum = 0 To getRows.Length - 1
-            'If rowNum <> 0 And rowNum <> (getRows.Length - 1) Then              'only add if the previous or next record is different to compress dataset
-            'If getRows(rowNum)(1).ToString() <> getRows(rowNum - 1)(1).ToString() Or getRows(rowNum)(1).ToString() <> getRows(rowNum + 1)(1).ToString() Then GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-            'Else
-            'GetColl.Add(getRows(rowNum)(0).ToString() + "," + getRows(rowNum)(1).ToString())
-            'End If
-            'Next
-            'Dim record, oldY As String
-            'For Each dr As DataRow In getRows
-            '    record = dr(0).ToString + "," + dr(1).ToString
-            '    If oldY <> dr(1).ToString Then GetColl.Add(record)
-            '    oldY = dr(1).ToString
-            '    'Dim DictRow As Dictionary(Of String, Object) = dr.Table.Columns.Cast(Of DataColumn)().ToDictionary(Function(col) col.ColumnName, Function(col) dr.Field(Of Object)(col.ColumnName))
-            '    'GetColl.Add(DictRow)
-            'Next
             Return GetColl
         End Function
 

@@ -34,7 +34,7 @@ Namespace HANetwork
         Private SendRespTempl As New Structures.HAMessageStruc
 
         Dim RespMsg As New Structures.HAMessageStruc
-
+        Private ClientLock As New Object
         Public HAClients As New ConcurrentDictionary(Of String, ClientStruc)   ' List of clients by IPaddress and Name
         Public HAPlugins As New ClientStruc                                     ' Plugin WS connection info
 
@@ -319,46 +319,48 @@ Namespace HANetwork
         End Structure
 
         Private Function ConnectClient(Client As WebSocketSession, ClientName As String, ClientData As String) As Boolean
-            If Not IsNothing(ClientName) Then
-                Dim RespMsg As New Structures.HAMessageStruc
-                RespMsg = SendRespTempl
-                If ClientName = "" Then                             ' No client name supplied, check DNS and return client name
-                    ClientName = Dns.GetHostEntry(Client.RemoteEndPoint.Address.ToString).HostName      ' XXXX Need to test this across the internet/firewall
+            ' TODO: WHen 2 clients try to connect at the same time after a reboot get object not an instance errors
+            SyncLock ClientLock
+                If Not IsNothing(ClientName) Then
+                    Dim RespMsg As New Structures.HAMessageStruc
+                    RespMsg = SendRespTempl
+                    If ClientName = "" Then                             ' No client name supplied, check DNS and return client name
+                        ClientName = Dns.GetHostEntry(Client.RemoteEndPoint.Address.ToString).HostName      ' XXXX Need to test this across the internet/firewall
+                    Else
+                        ' User specified, so do authorisation here....
+                        'RespMsg.Scope = "AUTHENTICATED"
+                    End If
+                    RespMsg.Scope = "CONNECT"
+                    Dim myConn As ConnStruc
+                    myConn.ClientName = ClientName
+                    myConn.ServerName = GlobalVars.myNetName
+                    RespMsg.Data = fastJSON.JSON.ToJSON(myConn)
+                    '                If IsNothing(Client.Cookies("clientname")) Then
+                    Dim NewClient As New ClientStruc
+                    NewClient.ClientContext = Client
+                    NewClient.ConnectTime = Date.Now
+                    'NewClient.LastMsg = Date.Now
+                    NewClient.Subscribed = New List(Of String)
+                    '                    If Not HAClients.ContainsKey(ClientName) Then
+                    HAClients(ClientName) = NewClient                                   ' Create a client session with the name of the client as the key, client context as value (multiple connects OK)
+                    If IsNothing(Client.Cookies("clientname")) Then Client.Cookies.Add("clientname", ClientName)                                   ' Add client name to the supersocket session object so we can identify it on disconnect
+                    WriteConsole(True, "Client '" + ClientName + "' registered from IP address " + Client.RemoteEndPoint.Address.ToString)
+                    Dim jsonText As String = SerialiseHAMsg(RespMsg)
+                    HAClients(ClientName).ClientContext.Send(jsonText)                      ' send message to client
+                    '                   Else
+                    '                        WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
+                    '                        DisconnectClient(Client, ClientName, ClientData)
+                    '                        Client.CloseWithHandshake("Already Logged On")
+                    '            End If
+                    '               Else
+                    '                    WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
+                    '                    DisconnectClient(Client, ClientName, ClientData)
+                    '                    Client.CloseWithHandshake("Already Logged On")
+                    '            End If
                 Else
-                    ' User specified, so do authorisation here....
-                    'RespMsg.Scope = "AUTHENTICATED"
+                    WriteConsole(True, "Client connect request without a valid client name '" + ClientName + "'. Aborting request.")
                 End If
-                RespMsg.Scope = "CONNECT"
-                Dim myConn As ConnStruc
-                myConn.ClientName = ClientName
-                myConn.ServerName = GlobalVars.myNetName
-                RespMsg.Data = fastJSON.JSON.ToJSON(myConn)
-                '                If IsNothing(Client.Cookies("clientname")) Then
-                Dim NewClient As New ClientStruc
-                NewClient.ClientContext = Client
-                NewClient.ConnectTime = Date.Now
-                'NewClient.LastMsg = Date.Now
-                NewClient.Subscribed = New List(Of String)
-                '                    If Not HAClients.ContainsKey(ClientName) Then
-                HAClients(ClientName) = NewClient                                   ' Create a client session with the name of the client as the key, client context as value (multiple connects OK)
-                Client.Cookies.Add("clientname", ClientName)                                   ' Add client name to the supersocket session object so we can identify it on disconnect
-                WriteConsole(True, "Client '" + ClientName + "' registered from IP address " + Client.RemoteEndPoint.Address.ToString)
-                Dim jsonText As String = SerialiseHAMsg(RespMsg)
-                HAClients(ClientName).ClientContext.Send(jsonText)                      ' send message to client
-                '                   Else
-                '                        WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
-                '                        DisconnectClient(Client, ClientName, ClientData)
-                '                        Client.CloseWithHandshake("Already Logged On")
-                '            End If
-                '               Else
-                '                    WriteConsole(True, "Client '" + ClientName + "' trying to reconnect and already logged in")
-                '                    DisconnectClient(Client, ClientName, ClientData)
-                '                    Client.CloseWithHandshake("Already Logged On")
-                '            End If
-            Else
-                WriteConsole(True, "Client connect request without a valid client name '" + ClientName + "'. Aborting request.")
-            End If
-
+            End SyncLock
         End Function
 
         Private Function DisconnectClient(Client As WebSocketSession, ClientName As String, ClientData As String) As Boolean

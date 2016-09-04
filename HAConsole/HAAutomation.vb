@@ -213,15 +213,17 @@ Public Class Automation
                 ProgramTable.Columns.Add("Desc")
                 Dim fileNames() As String = HS.GetProgramNames(TableName.ToUpper).Split(","c)
                 For Each file In fileNames
-                    Dim row As DataRow = ProgramTable.NewRow()
-                    If file.IndexOf("_") = -1 Then
-                        row("Name") = file.Substring(0, file.LastIndexOf("."))       ' strip extension
-                    Else
-                        row("Name") = file.Substring(0, file.IndexOf("_"))          ' strip description delimited by _
-                        Dim TempStr As String = file.Substring(file.IndexOf("_") + 1)
-                        row("Desc") = TempStr.Substring(0, TempStr.LastIndexOf("."))
+                    If file <> "" Then
+                        Dim row As DataRow = ProgramTable.NewRow()
+                        If file.IndexOf("_") = -1 Then
+                            row("Name") = file.Substring(0, file.LastIndexOf("."))       ' strip extension
+                        Else
+                            row("Name") = file.Substring(0, file.IndexOf("_"))          ' strip description delimited by _
+                            Dim TempStr As String = file.Substring(file.IndexOf("_") + 1)
+                            row("Desc") = TempStr.Substring(0, TempStr.LastIndexOf("."))
+                        End If
+                        ProgramTable.Rows.Add(row)
                     End If
-                    ProgramTable.Rows.Add(row)
                 Next
                 Return ProgramTable.Select()
         End Select
@@ -386,16 +388,16 @@ Public Class Automation
                         TestStore.Scope = CStr(TFRow(0)("Scope"))
                         TestStore.ClassName = CStr(TFRow(0)("Class"))
                         TestStore.Data = CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero))
-                        If HS.GetStoreState(TestStore).ToUpper <> TestStore.Data.ToUpper Then            ' Only save a message if the data is different
+                        Dim GetState = HS.GetStoreState(TestStore)
+                        If IsNothing(GetState) Then GetState = "_" + TestStore.Data         ' Nothing already saved, so ensure we create message (.toUpper bombs if testing on nothing)
+                        If GetState.ToUpper <> TestStore.Data.ToUpper Then            ' Only save a message if the data is different
                             ' Apply rounding to the result, and create new event message
                             HS.CreateMessage(TestStore.ClassName, HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, TestStore.Instance, TestStore.Scope,
                                              CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), TestStore.Category, TestStore.Network)
-                            'HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")),
-                            'CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), HS.GetCatName(CByte(TFRow(0)("Category"))), GlobalVars.myNetNum)
                         End If
                     End If
                 End If
-        Next
+            Next
 
         End SyncLock
 
@@ -1410,7 +1412,7 @@ Public Class Automation
             Dim EventRows As DataRow() = GetEventsInfo(EventName)
             If EventRows.Count = 1 Then                                                             ' Should only be 1 record
                 Dim EventRowLocn As Integer = EventsDT.Rows.IndexOf(EventRows(0))
-                If EventRowLocn = -1 Then Return "Can't locate entry '" + EventName + "' to update"
+                If EventRowLocn = -1 Then Return "Can't locate entry '" + EventName + "' to update. If this is a new entry, press the 'new' icon instead."
                 SyncLock AccessDB
                     EventsDT(EventRowLocn).Item("EventName") = EventName
                     EventsDT(EventRowLocn).Item("EventDescription") = EventDescription
@@ -1483,7 +1485,7 @@ Public Class Automation
             Dim TriggerRows As DataRow() = GetTriggersInfo(TriggerName)
             If TriggerRows.Count = 1 Then                                                           ' Should only be 1 record
                 Dim RowLocn As Integer = TriggersDT.Rows.IndexOf(TriggerRows(0))
-                If RowLocn = -1 Then Return "Can't locate entry '" + TriggerName + "' to update"
+                If RowLocn = -1 Then Return "Can't locate entry '" + TriggerName + "' to update. If this is a new entry, press the 'new' icon instead."
                 SyncLock AccessDB
                     TriggersDT(RowLocn).Item("TrigDescription") = TriggerDesc
                     TriggersDT(RowLocn).Item("TrigScript") = Script
@@ -1545,7 +1547,7 @@ Public Class Automation
             Dim ActionRows As DataRow() = GetActionsInfo(ActionName)
             If ActionRows.Count = 1 Then                                                            ' Should only be 1 record
                 Dim RowLocn As Integer = ActionsDT.Rows.IndexOf(ActionRows(0))
-                If RowLocn = -1 Then Return "Can't locate entry '" + ActionName + "' to update"
+                If RowLocn = -1 Then Return "Can't locate entry '" + ActionName + "' to update. If this is a new entry, press the 'new' icon instead."
                 SyncLock AccessDB
                     ActionsDT(RowLocn).Item("ActionDescription") = ActionDescription
                     ActionsDT(RowLocn).Item("ActionScript") = Script
@@ -1581,7 +1583,7 @@ Public Class Automation
             If TransformRows.Count = 1 Then
 
                 Dim TransformRowLocn As Integer = TransFuncsDT.Rows.IndexOf(TransformRows(0))
-                If TransformRowLocn = -1 Then Return "Can't locate entry '" + TransformName + "' to update"
+                If TransformRowLocn = -1 Then Return "Can't locate entry '" + TransformName + "' to update. If this is a new entry, press the 'new' icon instead."
                 SyncLock AccessDB
                     TransFuncsDT(TransformRowLocn).Item("TFName") = TransformName
                     TransFuncsDT(TransformRowLocn).Item("TFDescription") = TransformDesc
