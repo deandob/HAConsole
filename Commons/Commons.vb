@@ -37,8 +37,8 @@ Namespace Structures
     <Serializable()>
     Public Structure QueryStruc                             ' Query request against data or state store
         Public Property Func As String
-        Public Property StartDateTime As Long               ' .NET UTC time format
-        Public Property EndDateTime As Long
+        Public Property StartDateTime As String               ' .NET UTC time format
+        Public Property EndDateTime As String
         Public Property TimeFrame As String
         Public Property ValCond As String
         Public Property Cat As String

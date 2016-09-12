@@ -6,6 +6,7 @@ Imports Commons
 Imports System.Text
 Imports System.Text.RegularExpressions
 Imports System.Runtime.InteropServices
+Imports System.Threading
 
 
 ' For FastJSON deserialiser to work, the same commons file needs to be used by both the client and the server as the assembly info for the type is sent in the JSON string, and it needs to be identical on both sides to work
@@ -33,6 +34,14 @@ Namespace HANetwork
 
         Private SendRespTempl As New Structures.HAMessageStruc
 
+        Public Locale As String                                                 ' send locale info to client
+
+        Private Structure ConnStruc
+            Public ClientName As String
+            Public ServerName As String
+            Public Locale As String
+        End Structure
+
         Dim RespMsg As New Structures.HAMessageStruc
         Private ClientLock As New Object
         Public HAClients As New ConcurrentDictionary(Of String, ClientStruc)   ' List of clients by IPaddress and Name
@@ -43,6 +52,9 @@ Namespace HANetwork
                 WriteConsole(True, "Starting Network Management...")
                 WSPort = CInt(HS.Ini.Get("server", "WSPort", "1066"))                       ' 1066 is not a well known port
                 'WSPort = "80"
+
+                Locale = Thread.CurrentThread.CurrentCulture.Name               ' Get locale name as can't trust javascript clients
+
                 With SendRespTempl
                     .Category = "SYSTEM"
                     .ClassName = "NETWORK"
@@ -313,11 +325,6 @@ Namespace HANetwork
             End Try
         End Function
 
-        Private Structure ConnStruc
-            Public ClientName As String
-            Public ServerName As String
-        End Structure
-
         Private Function ConnectClient(Client As WebSocketSession, ClientName As String, ClientData As String) As Boolean
             ' TODO: WHen 2 clients try to connect at the same time after a reboot get object not an instance errors
             SyncLock ClientLock
@@ -332,8 +339,12 @@ Namespace HANetwork
                     End If
                     RespMsg.Scope = "CONNECT"
                     Dim myConn As ConnStruc
-                    myConn.ClientName = ClientName
-                    myConn.ServerName = GlobalVars.myNetName
+                    With myConn
+                        .ClientName = ClientName
+                        .ServerName = GlobalVars.myNetName
+                        .Locale = Locale
+                    End With
+
                     RespMsg.Data = fastJSON.JSON.ToJSON(myConn)
                     '                If IsNothing(Client.Cookies("clientname")) Then
                     Dim NewClient As New ClientStruc

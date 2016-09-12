@@ -1000,11 +1000,12 @@ Public Class Automation
         Return GetColl
     End Function
 
-    ' All dates coming to the server must be in .NET binary date format UTC, so force UTC kind
+    ' All dates over the wire are ISO8601 UTC format in local locale.
     Public Shared Function UTCKind(UTC As String) As DateTime
-        'Dim yy = Date.FromBinary(CLng(UTC))
-        'Dim xx = DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
-        Return DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
+        Dim myDateTime As DateTime
+        Date.TryParse(UTC, myDateTime)          ' String is ISO8601 UTC format
+        Return myDateTime
+        'Return DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
     End Function
 
     Public Shared Function ProcessAddMsg(Table As String, Data As System.Collections.Generic.List(Of Object)) As String
@@ -1167,7 +1168,7 @@ Public Class Automation
             If TrigNames.Count = 0 Then Return "No Event Triggers"
             If ActionNames.Count = 0 Then Return "No Event Actions"
             If GetEventsInfo(EventName).Length > 0 Then
-                Return "The entry '" + EventName + "' already exists"
+                Return "The entry '" + EventName + "' already exists. If this is an update request not a new event, press the update icon instead."
             Else
                 Dim NewRow As DataRow = EventsDT.NewRow()
                 NewRow.Item("EventName") = EventName
@@ -1208,7 +1209,7 @@ Public Class Automation
     Public Shared Function AddNewAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
         If ActionName <> "" Then
             If GetActionsInfo(ActionName).Length > 0 Then
-                Return "The entry '" + ActionName + "' already exists"                                                                    ' The record already exists
+                Return "The entry '" + ActionName + "' already exists. If this is an update request not a new action, press the update icon instead."                                                                    ' The record already exists
             Else
                 Dim NewRow As DataRow = ActionsDT.NewRow()
                 NewRow.Item("ActionName") = ActionName
@@ -1243,7 +1244,7 @@ Public Class Automation
                                  Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
         If TriggerName <> "" Then
             If GetTriggersInfo(TriggerName).Length > 0 Then
-                Return "The entry '" + TriggerName + "' already exists"
+                Return "The entry '" + TriggerName + "' already exists. If this is an update request not a new trigger, press the update icon instead."
             Else
                 Dim NewRow As DataRow = TriggersDT.NewRow()
                 NewRow.Item("TrigName") = TriggerName
@@ -1301,7 +1302,7 @@ Public Class Automation
         If TransformName <> "" Then
             If Functions.Count = 0 Then Return "No Transform Functions"
             If GetTransformsInfo(TransformName).Length > 0 Then
-                Return "The entry '" + TransformName + "' already exists"
+                Return "The entry '" + TransformName + "' already exists If this is an update request not a new transform, press the update icon instead."
             Else
                 Dim NewRow As DataRow = TransFuncsDT.NewRow()
                 NewRow.Item("TFName") = TransformName
