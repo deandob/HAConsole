@@ -938,7 +938,31 @@ Public Class Automation
         Dim GetColl As New List(Of Object)
         Select Case Table.ToUpper
             Case Is = "TRIGGERS"
-                GetRow = GetTriggersInfo(Data)
+                Dim GetTable As DataTable = GetTriggersInfo(Data).CopyToDataTable       ' Recast columns to strings
+                GetTable.Columns("TrigDateFrom").ColumnName = "Temp1"
+                GetTable.Columns("TrigTimeFrom").ColumnName = "Temp2"
+                GetTable.Columns("TrigDateTo").ColumnName = "Temp3"
+                GetTable.Columns("TrigTimeTo").ColumnName = "Temp4"
+                GetTable.Columns("TrigTimeofDay").ColumnName = "Temp5"
+                GetTable.Columns("TrigLastFired").ColumnName = "Temp6"
+                GetTable.Columns.Add("TrigDateFrom", GetType(String))
+                GetTable.Columns.Add("TrigTimeFrom", GetType(String))
+                GetTable.Columns.Add("TrigDateTo", GetType(String))
+                GetTable.Columns.Add("TrigTimeTo", GetType(String))
+                GetTable.Columns.Add("TrigTimeofDay", GetType(String))
+                GetTable.Columns.Add("TrigLastFired", GetType(String))
+                For Each row As DataRow In GetTable.Rows
+                    row("TrigDateFrom") = Date.FromBinary(CLng(row("Temp1"))).ToString("s") + "Z"       ' Convert to ISO 8601 UTC strings
+                    row("TrigTimeFrom") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp2"))).ToString("HH:mm") + "Z"
+                    row("TrigDateTo") = Date.FromBinary(CLng(row("Temp3"))).ToString("s") + "Z"
+                    row("TrigTimeTo") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp4"))).ToString("HH:mm") + "Z"
+                    row("TrigTimeofDay") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp5"))).ToString("HH:mm") + "Z"
+                    row("TrigLastFired") = Date.FromBinary(CLng(row("Temp6"))).ToString("s") + "Z"
+                Next
+                For i = 1 To 6
+                    GetTable.Columns.Remove("Temp" + i.ToString)
+                Next
+                GetRow = GetTable.Select()
             Case Is = "ACTIONS"
                 GetRow = GetActionsInfo(Data)
             Case Is = "EVENTS"
@@ -1287,7 +1311,7 @@ Public Class Automation
                 NewRow.Item("TrigSun") = Sun
                 NewRow.Item("TrigActive") = Active
                 NewRow.Item("TrigInactive") = Inactive
-                NewRow.Item("TrigTimeofDay") = TimeofDay.Ticks
+                NewRow.Item("TrigTimeofDay") = New DateTime(0).Add(TimeofDay.TimeOfDay).Ticks
                 NewRow.Item("TrigLastFired") = 0
                 UpdateAutoDB("ADD", "TRIGGERS", NewRow)
                 HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "TRIGGERS", "ADDED", TriggerName, "SYSTEM")
@@ -1527,7 +1551,7 @@ Public Class Automation
                     TriggersDT(RowLocn).Item("TrigSun") = Sun
                     TriggersDT(RowLocn).Item("TrigActive") = Active
                     TriggersDT(RowLocn).Item("TrigInactive") = Inactive
-                    TriggersDT(RowLocn).Item("TrigTimeofDay") = TimeofDay.Ticks
+                    TriggersDT(RowLocn).Item("TrigTimeofDay") = New DateTime(0).Add(TimeofDay.TimeOfDay).Ticks
                     TriggersDT(RowLocn).Item("TrigLastFired") = 0                  ' Trigger adjusted, so clear last fired field.
                 End SyncLock
                 UpdateAutoDB("UPD", "TRIGGERS", TriggersDT(RowLocn))
