@@ -966,8 +966,23 @@ Public Class Automation
             Case Is = "ACTIONS"
                 GetRow = GetActionsInfo(Data)
             Case Is = "EVENTS"
-                GetRow = GetEventsInfo(Data)
-            Case Is = "EVENTACTIONS"
+                Dim GetTable As DataTable = GetEventsInfo(Data).CopyToDataTable       ' Recast columns to strings
+                GetTable.Columns("EventStart").ColumnName = "Temp1"
+                GetTable.Columns("EventStop").ColumnName = "Temp2"
+                GetTable.Columns("EventLastFired").ColumnName = "Temp3"
+                GetTable.Columns.Add("EventStart", GetType(String))
+                GetTable.Columns.Add("EventStop", GetType(String))
+                GetTable.Columns.Add("EventLastFired", GetType(String))
+                For Each row As DataRow In GetTable.Rows
+                    row("EventStart") = Date.FromBinary(CLng(row("Temp1"))).ToString("s") + "Z"       ' Convert to ISO 8601 UTC strings
+                    row("EventStop") = Date.FromBinary(CLng(row("Temp2"))).ToString("s") + "Z"
+                    row("EventLastFired") = Date.FromBinary(CLng(row("Temp3"))).ToString("s") + "Z"
+                Next
+                GetTable.Columns.Remove("Temp1")
+                GetTable.Columns.Remove("Temp2")
+                GetTable.Columns.Remove("Temp3")
+                GetRow = GetTable.Select()
+                    Case Is = "EVENTACTIONS"
                 Dim GetTable As DataTable = GetEventActionsInfo(Data).CopyToDataTable
                 GetTable.Columns.Add("Desc")                            ' Add desc column via datatable
                 GetRow = GetTable.Select()
@@ -1027,7 +1042,7 @@ Public Class Automation
     ' All dates over the wire are ISO8601 UTC format in local locale.
     Public Shared Function UTCKind(UTC As String) As DateTime
         Dim myDateTime As DateTime
-        Date.TryParse(UTC, myDateTime)          ' String is ISO8601 UTC format
+        Date.TryParse(UTC, Globalization.CultureInfo.CurrentCulture, Globalization.DateTimeStyles.AdjustToUniversal, myDateTime)          ' String is ISO8601 UTC format but keep in UTC for the db
         Return myDateTime
         'Return DateTime.SpecifyKind(Date.FromBinary(CLng(UTC)), DateTimeKind.Utc)
     End Function
@@ -1070,7 +1085,7 @@ Public Class Automation
             Case Is = "EVENTS"
                 Dim ActionNames As String() = CType(DataArray.Item("eventActions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
-                Result = AddNewEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), Date.FromBinary(CLng(DataArray.Item("eventFromDateTime"))), Date.FromBinary(CLng(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
+                Result = AddNewEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), UTCKind(CStr(DataArray.Item("eventFromDateTime"))), UTCKind(CStr(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
             Case Is = "TRANSFORMS"
                 Dim Functions As String() = CType(DataArray.Item("transFuncFunctions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TransformMessage As Structures.HAMessageStruc
@@ -1131,7 +1146,7 @@ Public Class Automation
             Case Is = "EVENTS"
                 Dim ActionNames As String() = CType(DataArray.Item("eventActions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
-                Result = UpdateEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), Date.FromBinary(CLng(DataArray.Item("eventFromDateTime"))), Date.FromBinary(CLng(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
+                Result = UpdateEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), UTCKind(CStr(DataArray.Item("eventFromDateTime"))), UTCKind(CStr(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
             Case Is = "PROGRAMS"
                 Result = UpdateProgram(CStr(DataArray.Item("programName")), CStr(DataArray.Item("programDesc")), CStr(DataArray.Item("programType")), CStr(DataArray.Item("programLang")), CStr(DataArray.Item("programCode")))
             Case Is = "TRANSFORMS"
