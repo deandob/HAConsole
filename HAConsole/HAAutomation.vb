@@ -23,7 +23,9 @@ Public Class Automation
     Public Shared TriggersDT As New DataTable                           ' Datatable for triggers
     Private Shared TriggersDA As New SQLite.SQLiteDataAdapter
     Private Shared TriggersSQLCmd As SQLite.SQLiteCommand               ' Command for insert SQL Triggers
-
+    Public Shared QueriesDT As New DataTable                            ' Datatable for queries
+    Private Shared QueriesDA As New SQLite.SQLiteDataAdapter
+    Private Shared QueriesSQLCmd As SQLite.SQLiteCommand                ' Command for insert SQL Queries
     Public Shared TransFuncsDT As New DataTable                           ' Datatable for triggers
     Private Shared TransFuncsDA As New SQLite.SQLiteDataAdapter
     Private Shared TransFuncsSQLCmd As SQLite.SQLiteCommand               ' Command for insert SQL Triggers
@@ -65,10 +67,11 @@ Public Class Automation
             SQLCmd.CommandText = SQLCmd.CommandText + "TrigDateFrom INTEGER, TrigTimeFrom INTEGER, TrigDateTo INTEGER, TrigTimeTo INTEGER,TrigFortnightly BOOLEAN, TrigMonthly BOOLEAN, TrigYearly BOOLEAN, TrigSunrise BOOLEAN, TrigSunset BOOLEAN, TrigDayTime BOOLEAN, TrigNightTime BOOLEAN, "
             SQLCmd.CommandText = SQLCmd.CommandText + "TrigMon BOOLEAN, TrigTue BOOLEAN, TrigWed BOOLEAN, TrigThu BOOLEAN, TrigFri BOOLEAN, TrigSat BOOLEAN, TrigSun BOOLEAN, TrigActive BOOLEAN, TrigInactive BOOLEAN, TrigTimeofDay INTEGER, TrigLastFired INTEGER);"
             SQLCmd.ExecuteNonQuery()
-
             SQLCmd.CommandText = "CREATE TABLE TransFuncs (TFName TEXT PRIMARY KEY, TFDescription TEXT, Enabled BOOLEAN, RoundDec INTEGER, Network INTEGER, Category INTEGER, Class TEXT, Instance TEXT, Scope TEXT);"
             SQLCmd.ExecuteNonQuery()
             SQLCmd.CommandText = "CREATE TABLE Funcs (FuncIndex INTEGER PRIMARY KEY, TransFunc TEXT, FuncType TEXT, Val REAL, Network INTEGER, Category INTEGER, Class TEXT, Instance TEXT, Scope TEXT, History TEXT, Type TEXT, Prev INTEGER, PrevUnit TEXT, PrevFromDate INTEGER, PrevFromTime INTEGER);"
+            SQLCmd.ExecuteNonQuery()
+            SQLCmd.CommandText = "CREATE TABLE Queries (QueryName TEXT PRIMARY KEY, QueryDescription TEXT, QueryType TEXT, QueryCategory TEXT, QueryClass TEXT, QueryInstance TEXT, QueryScope TEXT, QueryCond TEXT, QueryValue TEXT, QueryTimeframe TEXT, QueryRadioElapsed BOOLEAN, QueryRadioSince BOOLEAN, QueryRadioBetween BOOLEAN, QueryElapsed TEXT, QueryElapsedDrop TEXT, QueryFromDate INTEGER, QueryFromTime INTEGER, QueryToDate INTEGER, QueryToTime INTEGER, QueryJSON TEXT);"
             SQLCmd.ExecuteNonQuery()
 
             AutoConn.Close()
@@ -78,12 +81,10 @@ Public Class Automation
         AutoConn.Open()                                                         ' Open the database
 
         'Dim SQLCmd1 As SQLite.SQLiteCommand = AutoConn.CreateCommand
-        'SQLCmd1.CommandText = "CREATE TABLE TransFuncs (TFName TEXT PRIMARY KEY, TFDescription TEXT, Enabled BOOLEAN, RoundDec INTEGER, Network INTEGER, Category INTEGER, Class TEXT, Instance TEXT, Scope TEXT);"
-        'SQLCmd1.ExecuteNonQuery()
-        'SQLCmd1.CommandText = "CREATE TABLE Funcs (FuncIndex INTEGER PRIMARY KEY, TransFunc TEXT,FuncType TEXT, Val REAL, Network INTEGER, Category INTEGER, Class TEXT, Instance TEXT, Scope TEXT, History TEXT, Type TEXT, Prev INTEGER, PrevUnit TEXT, PrevFromDate INTEGER, PrevFromTime INTEGER);"
+        'SQLCmd1.CommandText = "CREATE TABLE Queries (QueryName TEXT PRIMARY KEY, QueryDescription TEXT, QueryType TEXT, QueryCategory TEXT, QueryClass TEXT, QueryInstance TEXT, QueryScope TEXT, QueryCond TEXT, QueryValue TEXT, QueryTimeframe TEXT, QueryRadioElapsed BOOLEAN, QueryRadioSince BOOLEAN, QueryRadioBetween BOOLEAN, QueryElapsed TEXT, QueryElapsedDrop TEXT, QueryFromDate INTEGER, QueryFromTime INTEGER, QueryToDate INTEGER, QueryToTime INTEGER, QueryJSON TEXT);"
         'SQLCmd1.ExecuteNonQuery()
         'AutoConn.Close()
-        'Return
+        'Stop
 
         ' Create the SQL command objects
         ActionsSQLCmd = AutoConn.CreateCommand
@@ -91,7 +92,7 @@ Public Class Automation
         EventActionsSQLCmd = AutoConn.CreateCommand
         EventTriggersSQLCmd = AutoConn.CreateCommand
         TriggersSQLCmd = AutoConn.CreateCommand
-
+        QueriesSQLCmd = AutoConn.CreateCommand
         TransFuncsSQLCmd = AutoConn.CreateCommand
         FuncsSQLCmd = AutoConn.CreateCommand
 
@@ -108,10 +109,12 @@ Public Class Automation
         EventTriggersSQLCmd.CommandText = "SELECT * FROM EventTriggers"
         EventTriggersDA.SelectCommand = EventTriggersSQLCmd
         EventTriggersDA.Fill(EventTriggersDT)
+        QueriesSQLCmd.CommandText = "SELECT * FROM Queries"
+        QueriesDA.SelectCommand = QueriesSQLCmd
+        QueriesDA.Fill(QueriesDT)
         TriggersSQLCmd.CommandText = "SELECT * FROM Triggers"
         TriggersDA.SelectCommand = TriggersSQLCmd
         TriggersDA.Fill(TriggersDT)
-
         TransFuncsSQLCmd.CommandText = "SELECT * FROM TransFuncs"
         TransFuncsDA.SelectCommand = TransFuncsSQLCmd
         TransFuncsDA.Fill(TransFuncsDT)
@@ -155,6 +158,16 @@ Public Class Automation
             Return TriggersDT.Select()
         End If
     End Function
+
+    ' Extract Trigger information from the datatable based on filter
+    Public Shared Function GetQueriesInfo(QueryName As String) As DataRow()
+        If QueryName <> "" Then
+            Return QueriesDT.Select("QueryName = '" + QueryName + "'")
+        Else
+            Return QueriesDT.Select()
+        End If
+    End Function
+
 
     ' Extract EventActions information from the datatable based on filter
     Public Shared Function GetEventActionsInfo(EventName As String) As DataRow()
@@ -201,6 +214,8 @@ Public Class Automation
                 Return TriggersDT.DefaultView.ToTable("TriggerNames", False, "TrigName").Select()
             Case Is = "EVENTS"
                 Return EventsDT.DefaultView.ToTable("EventNames", False, "EventName").Select()
+            Case Is = "QUERIES"
+                Return QueriesDT.DefaultView.ToTable("QueryNames", False, "QueryName").Select()
             Case Is = "TRIGGERSDESC"
                 Return TriggersDT.DefaultView.ToTable("EventTriggers", False, {"TrigName", "TrigDescription"}).Select()
             Case Is = "ACTIONSDESC"
@@ -1006,6 +1021,37 @@ Public Class Automation
                 GetRow = GetTransformsInfo(Data)
             Case Is = "FUNCS"
                 GetRow = GetFunctionsInfo(Data)
+            Case Is = "QUERIES"
+                Dim GetTable As DataTable = GetQueriesInfo(Data).CopyToDataTable       ' Recast columns to strings
+                GetTable.Columns("QueryFromDate").ColumnName = "Temp1"
+                GetTable.Columns("QueryFromTime").ColumnName = "Temp2"
+                GetTable.Columns("QueryToDate").ColumnName = "Temp3"
+                GetTable.Columns("QueryToTime").ColumnName = "Temp4"
+                GetTable.Columns.Add("QueryFromDate", GetType(String))
+                GetTable.Columns.Add("QueryFromTime", GetType(String))
+                GetTable.Columns.Add("QueryToDate", GetType(String))
+                GetTable.Columns.Add("QueryToTime", GetType(String))
+                For Each row As DataRow In GetTable.Rows
+                    row("QueryFromDate") = Date.FromBinary(CLng(row("Temp1"))).ToString("s") + "Z"       ' Convert to ISO 8601 UTC strings
+                    row("QueryFromTime") = Date.FromBinary(CLng(row("Temp2"))).ToString("s") + "Z"
+                    row("QueryToDate") = Date.FromBinary(CLng(row("Temp3"))).ToString("s") + "Z"
+                    row("QueryToTime") = Date.FromBinary(CLng(row("Temp4"))).ToString("s") + "Z"
+                Next
+                GetTable.Columns.Remove("Temp1")
+                GetTable.Columns.Remove("Temp2")
+                GetTable.Columns.Remove("Temp3")
+                GetTable.Columns.Remove("Temp4")
+                GetRow = GetTable.Select()
+            Case Is = "EVENTACTIONS"
+                Dim GetTable As DataTable = GetEventActionsInfo(Data).CopyToDataTable
+                GetTable.Columns.Add("Desc")                            ' Add desc column via datatable
+                GetRow = GetTable.Select()
+                Dim i As Int16 = 0
+                For Each row As DataRow In GetRow
+                    Dim rowAction As DataRow() = GetActionsInfo(row.Item("ActionName").ToString)       ' Extract the trigger description column and add it to the datarow
+                    GetRow(i).Item("Desc") = rowAction(0).Item("ActionDescription")
+                    i = CShort(i + 1)
+                Next
             Case Is = "NAMES"
                 GetRow = GetNames(Data)               ' Tablename is data
             Case Is = "WIDGETS"
@@ -1048,7 +1094,6 @@ Public Class Automation
     End Function
 
     Public Shared Function ProcessAddMsg(Table As String, Data As System.Collections.Generic.List(Of Object)) As String
-
         ' TODO: Categories are coming across as numbers but typed as strings
         Dim DataArray As IDictionary(Of String, Object) = CType(Data(0), IDictionary(Of String, Object))
         Dim Result As String = ""
@@ -1086,6 +1131,12 @@ Public Class Automation
                 Dim ActionNames As String() = CType(DataArray.Item("eventActions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
                 Result = AddNewEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), UTCKind(CStr(DataArray.Item("eventFromDateTime"))), UTCKind(CStr(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
+            Case Is = "QUERIES"
+                Result = AddNewQuery(CStr(DataArray.Item("queryName")), CStr(DataArray.Item("queryDesc")), CStr(DataArray.Item("queryType")), CStr(DataArray.Item("queryCategory")), CStr(DataArray.Item("queryClass")), CStr(DataArray.Item("queryInstance")), CStr(DataArray.Item("queryScope")), CStr(DataArray.Item("queryCond")),
+                                     CStr(DataArray.Item("queryValue")), CStr(DataArray.Item("queryTimeframe")), CBool(DataArray.Item("queryRadioElapsed")),
+                                     CBool(DataArray.Item("queryRadioSince")), CBool(DataArray.Item("queryRadioBetween")), CStr(DataArray.Item("queryElapsed")), CStr(DataArray.Item("queryElapsedDrop")),
+                                     UTCKind(CStr(DataArray.Item("queryFromDate"))), UTCKind(CStr(DataArray.Item("queryFromTime"))), UTCKind(CStr(DataArray.Item("queryToDate"))),
+                                     UTCKind(CStr(DataArray.Item("queryToTime"))), CStr(DataArray.Item("queryJSON")))
             Case Is = "TRANSFORMS"
                 Dim Functions As String() = CType(DataArray.Item("transFuncFunctions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TransformMessage As Structures.HAMessageStruc
@@ -1334,6 +1385,45 @@ Public Class Automation
             Return "OK"
         Else
             Return "No Trigger name specified"
+        End If
+    End Function
+
+    ' Update the automation database with a new query item (errors captured thrown to calling routine)
+    Public Shared Function AddNewQuery(QueryName As String, QueryDescription As String, QueryType As String, QueryCategory As String, QueryClass As String, QueryInstance As String,
+                                       QueryScope As String, QueryCond As String, QueryValue As String, QueryTimeframe As String, QueryElapsedRadio As Boolean, QuerySinceRadio As Boolean,
+                                       QueryBetweenRadio As Boolean, QueryElapsed As String, QueryElapsedDrop As String, QueryFromDate As Date, QueryFromTime As Date, QueryToDate As Date, QueryToTime As Date, QueryJSON As String) As String
+        If QueryName <> "" Then
+            If GetQueriesInfo(QueryName).Length > 0 Then
+                Return "The entry '" + QueryName + "' already exists. If this is an update request not a new query, press the update icon instead."                                                                    ' The record already exists
+            Else
+                Dim NewRow As DataRow = QueriesDT.NewRow()
+                NewRow.Item("QueryName") = QueryName
+                NewRow.Item("QueryDescription") = QueryDescription
+                NewRow.Item("QueryType") = QueryType
+                NewRow.Item("QueryCategory") = QueryCategory
+                NewRow.Item("QueryClass") = QueryClass
+                NewRow.Item("QueryInstance") = QueryInstance
+                NewRow.Item("QueryScope") = QueryScope
+                NewRow.Item("QueryCond") = QueryCond
+                NewRow.Item("QueryValue") = QueryValue
+                NewRow.Item("QueryTimeframe") = QueryTimeframe
+                NewRow.Item("QueryRadioElapsed") = QueryElapsedRadio
+                NewRow.Item("QueryRadioSince") = QuerySinceRadio
+                NewRow.Item("QueryRadioBetween") = QueryBetweenRadio
+                NewRow.Item("QueryElapsed") = QueryElapsed
+                NewRow.Item("QueryElapsedDrop") = QueryElapsedDrop
+                NewRow.Item("QueryFromDate") = QueryFromDate.Ticks
+                NewRow.Item("QueryFromTime") = QueryFromTime.Ticks
+                NewRow.Item("QueryToDate") = QueryToDate.Ticks
+                NewRow.Item("QueryToTime") = QueryToTime.Ticks
+                NewRow.Item("QueryJSON") = QueryJSON
+                UpdateAutoDB("ADD", "QUERIES", NewRow)
+
+                HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "QUERY", "ADDED", QueryName, "SYSTEM")
+            End If
+            Return "OK"
+        Else
+            Return "No Query name specified"                                                                        ' No Record name specified
         End If
     End Function
 
@@ -1875,6 +1965,14 @@ Public Class Automation
                     FuncsSQLCmd.ExecuteNonQuery()
                     If Func.ToUpper = "ADD" Then FuncsDT.Rows.Add(Row)
                     FuncsDT.AcceptChanges()
+                Case Is = "QUERIES"
+                    If Func.ToUpper = "DEL" Then QueriesSQLCmd.CommandText = "DELETE FROM Queries WHERE QueryName = '" + CStr(Row.Item("QueryName")) + "'"c
+                    If Func.ToUpper = "UPD" Then QueriesSQLCmd.CommandText = SQLiteUpdateCommandBuilder("Queries", "QueryName='" + CStr(Row.Item("QueryName")) + "'"c, Row)
+                    If Func.ToUpper = "ADD" Then QueriesSQLCmd.CommandText = SQLiteInsertCommandBuilder("Queries", Row)
+                    QueriesSQLCmd.ExecuteNonQuery()
+                    If Func.ToUpper = "DEL" Then QueriesDT.Rows(RowLocn).Delete()
+                    If Func.ToUpper = "ADD" Then QueriesDT.Rows.Add(Row)
+                    QueriesDT.AcceptChanges()
             End Select
         End SyncLock
         Return True
