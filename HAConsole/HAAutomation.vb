@@ -71,7 +71,7 @@ Public Class Automation
             SQLCmd.ExecuteNonQuery()
             SQLCmd.CommandText = "CREATE TABLE Funcs (FuncIndex INTEGER PRIMARY KEY, TransFunc TEXT, FuncType TEXT, Val REAL, Network INTEGER, Category INTEGER, Class TEXT, Instance TEXT, Scope TEXT, History TEXT, Type TEXT, Prev INTEGER, PrevUnit TEXT, PrevFromDate INTEGER, PrevFromTime INTEGER);"
             SQLCmd.ExecuteNonQuery()
-            SQLCmd.CommandText = "CREATE TABLE Queries (QueryName TEXT PRIMARY KEY, QueryDescription TEXT, QueryType TEXT, QueryCategory TEXT, QueryClass TEXT, QueryInstance TEXT, QueryScope TEXT, QueryCond TEXT, QueryValue TEXT, QueryTimeframe TEXT, QueryRadioElapsed BOOLEAN, QueryRadioSince BOOLEAN, QueryRadioBetween BOOLEAN, QueryElapsed TEXT, QueryElapsedDrop TEXT, QueryFromDate INTEGER, QueryFromTime INTEGER, QueryToDate INTEGER, QueryToTime INTEGER, QueryJSON TEXT);"
+            SQLCmd.CommandText = "CREATE TABLE Queries (QueryName TEXT PRIMARY KEY, QueryDescription TEXT, QueryType TEXT, QueryNetwork INTEGER, QueryCategory INTEGER, QueryClass TEXT, QueryInstance TEXT, QueryScope TEXT, QueryCond TEXT, QueryValue TEXT, QueryTimeframe TEXT, QueryRadioElapsed BOOLEAN, QueryRadioSince BOOLEAN, QueryRadioBetween BOOLEAN, QueryElapsed TEXT, QueryElapsedDrop TEXT, QueryFromDate INTEGER, QueryFromTime INTEGER, QueryToDate INTEGER, QueryToTime INTEGER, QueryJSON TEXT);"
             SQLCmd.ExecuteNonQuery()
 
             AutoConn.Close()
@@ -80,11 +80,10 @@ Public Class Automation
 
         AutoConn.Open()                                                         ' Open the database
 
+        ' Uncomment code below to adjust database structure
         'Dim SQLCmd1 As SQLite.SQLiteCommand = AutoConn.CreateCommand
-        'SQLCmd1.CommandText = "CREATE TABLE Queries (QueryName TEXT PRIMARY KEY, QueryDescription TEXT, QueryType TEXT, QueryCategory TEXT, QueryClass TEXT, QueryInstance TEXT, QueryScope TEXT, QueryCond TEXT, QueryValue TEXT, QueryTimeframe TEXT, QueryRadioElapsed BOOLEAN, QueryRadioSince BOOLEAN, QueryRadioBetween BOOLEAN, QueryElapsed TEXT, QueryElapsedDrop TEXT, QueryFromDate INTEGER, QueryFromTime INTEGER, QueryToDate INTEGER, QueryToTime INTEGER, QueryJSON TEXT);"
+        'SQLCmd1.CommandText = "CREATE TABLE Queries (QueryName TEXT PRIMARY KEY, QueryDescription TEXT, QueryType TEXT, QueryNetwork INTEGER, QueryCategory TEXT, QueryClass TEXT, QueryInstance TEXT, QueryScope TEXT, QueryCond TEXT, QueryValue TEXT, QueryTimeframe TEXT, QueryRadioElapsed BOOLEAN, QueryRadioSince BOOLEAN, QueryRadioBetween BOOLEAN, QueryElapsed TEXT, QueryElapsedDrop TEXT, QueryFromDate INTEGER, QueryFromTime INTEGER, QueryToDate INTEGER, QueryToTime INTEGER, QueryJSON TEXT);"
         'SQLCmd1.ExecuteNonQuery()
-        'AutoConn.Close()
-        'Stop
 
         ' Create the SQL command objects
         ActionsSQLCmd = AutoConn.CreateCommand
@@ -1132,7 +1131,7 @@ Public Class Automation
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
                 Result = AddNewEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), UTCKind(CStr(DataArray.Item("eventFromDateTime"))), UTCKind(CStr(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
             Case Is = "QUERIES"
-                Result = AddNewQuery(CStr(DataArray.Item("queryName")), CStr(DataArray.Item("queryDesc")), CStr(DataArray.Item("queryType")), CStr(DataArray.Item("queryCategory")), CStr(DataArray.Item("queryClass")), CStr(DataArray.Item("queryInstance")), CStr(DataArray.Item("queryScope")), CStr(DataArray.Item("queryCond")),
+                Result = AddNewQuery(CStr(DataArray.Item("queryName")), CStr(DataArray.Item("queryDesc")), CStr(DataArray.Item("queryType")), CShort(DataArray.Item("queryNetwork")), CStr(DataArray.Item("queryCategory")), CStr(DataArray.Item("queryClass")), CStr(DataArray.Item("queryInstance")), CStr(DataArray.Item("queryScope")), CStr(DataArray.Item("queryCond")),
                                      CStr(DataArray.Item("queryValue")), CStr(DataArray.Item("queryTimeframe")), CBool(DataArray.Item("queryRadioElapsed")),
                                      CBool(DataArray.Item("queryRadioSince")), CBool(DataArray.Item("queryRadioBetween")), CStr(DataArray.Item("queryElapsed")), CStr(DataArray.Item("queryElapsedDrop")),
                                      UTCKind(CStr(DataArray.Item("queryFromDate"))), UTCKind(CStr(DataArray.Item("queryFromTime"))), UTCKind(CStr(DataArray.Item("queryToDate"))),
@@ -1198,6 +1197,12 @@ Public Class Automation
                 Dim ActionNames As String() = CType(DataArray.Item("eventActions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
                 Result = UpdateEvent(CStr(DataArray.Item("eventName")), CStr(DataArray.Item("eventDesc")), CBool(DataArray.Item("eventChkEnabled")), CBool(DataArray.Item("eventChkOneOff")), UTCKind(CStr(DataArray.Item("eventFromDateTime"))), UTCKind(CStr(DataArray.Item("eventToDateTime"))), TrigNames, ActionNames)
+            Case Is = "QUERIES"
+                Result = UpdateQuery(CStr(DataArray.Item("queryName")), CStr(DataArray.Item("queryDesc")), CStr(DataArray.Item("queryType")), CShort(DataArray.Item("queryNetwork")), CStr(DataArray.Item("queryCategory")), CStr(DataArray.Item("queryClass")), CStr(DataArray.Item("queryInstance")), CStr(DataArray.Item("queryScope")), CStr(DataArray.Item("queryCond")),
+                                     CStr(DataArray.Item("queryValue")), CStr(DataArray.Item("queryTimeframe")), CBool(DataArray.Item("queryRadioElapsed")),
+                                     CBool(DataArray.Item("queryRadioSince")), CBool(DataArray.Item("queryRadioBetween")), CStr(DataArray.Item("queryElapsed")), CStr(DataArray.Item("queryElapsedDrop")),
+                                     UTCKind(CStr(DataArray.Item("queryFromDate"))), UTCKind(CStr(DataArray.Item("queryFromTime"))), UTCKind(CStr(DataArray.Item("queryToDate"))),
+                                     UTCKind(CStr(DataArray.Item("queryToTime"))), CStr(DataArray.Item("queryJSON")))
             Case Is = "PROGRAMS"
                 Result = UpdateProgram(CStr(DataArray.Item("programName")), CStr(DataArray.Item("programDesc")), CStr(DataArray.Item("programType")), CStr(DataArray.Item("programLang")), CStr(DataArray.Item("programCode")))
             Case Is = "TRANSFORMS"
@@ -1233,6 +1238,8 @@ Public Class Automation
                 Result = DeleteAction(RecToDel)
             Case Is = "EVENTS"
                 Result = DeleteEvent(RecToDel)
+            Case Is = "QUERIES"
+                Result = DeleteQuery(RecToDel)
             Case Is = "TRANSFORMS"
                 Dim TransRec As DataRow() = GetTransformsInfo(RecToDel)
                 Dim delCat As String = HS.GetCatName(CByte(TransRec(0)("Category")))
@@ -1389,7 +1396,7 @@ Public Class Automation
     End Function
 
     ' Update the automation database with a new query item (errors captured thrown to calling routine)
-    Public Shared Function AddNewQuery(QueryName As String, QueryDescription As String, QueryType As String, QueryCategory As String, QueryClass As String, QueryInstance As String,
+    Public Shared Function AddNewQuery(QueryName As String, QueryDescription As String, QueryType As String, QueryNetwork As Int16, QueryCategory As String, QueryClass As String, QueryInstance As String,
                                        QueryScope As String, QueryCond As String, QueryValue As String, QueryTimeframe As String, QueryElapsedRadio As Boolean, QuerySinceRadio As Boolean,
                                        QueryBetweenRadio As Boolean, QueryElapsed As String, QueryElapsedDrop As String, QueryFromDate As Date, QueryFromTime As Date, QueryToDate As Date, QueryToTime As Date, QueryJSON As String) As String
         If QueryName <> "" Then
@@ -1400,6 +1407,7 @@ Public Class Automation
                 NewRow.Item("QueryName") = QueryName
                 NewRow.Item("QueryDescription") = QueryDescription
                 NewRow.Item("QueryType") = QueryType
+                NewRow.Item("QueryNetwork") = QueryNetwork
                 NewRow.Item("QueryCategory") = QueryCategory
                 NewRow.Item("QueryClass") = QueryClass
                 NewRow.Item("QueryInstance") = QueryInstance
@@ -1706,12 +1714,52 @@ Public Class Automation
         End If
     End Function
 
+    ' Update the automation database with a new query item (errors captured thrown to calling routine)
+    Public Shared Function UpdateQuery(QueryName As String, QueryDescription As String, QueryType As String, QueryNetwork As Int16, QueryCategory As String, QueryClass As String, QueryInstance As String,
+                                       QueryScope As String, QueryCond As String, QueryValue As String, QueryTimeframe As String, QueryElapsedRadio As Boolean, QuerySinceRadio As Boolean,
+                                       QueryBetweenRadio As Boolean, QueryElapsed As String, QueryElapsedDrop As String, QueryFromDate As Date, QueryFromTime As Date, QueryToDate As Date, QueryToTime As Date, QueryJSON As String) As String
+        If QueryName <> "" Then
+            Dim QueryRows As DataRow() = GetQueriesInfo(QueryName)
+            If QueryRows.Count = 1 Then                                                            ' Should only be 1 record
+                Dim RowLocn As Integer = QueriesDT.Rows.IndexOf(QueryRows(0))
+                If RowLocn = -1 Then Return "Can't locate entry '" + QueryName + "' to update. If this is a new entry, press the 'new' icon instead."
+                SyncLock AccessDB
+                    QueriesDT(RowLocn).Item("QueryDescription") = QueryDescription
+                    QueriesDT(RowLocn).Item("QueryType") = QueryType
+                    QueriesDT(RowLocn).Item("QueryNetwork") = QueryNetwork
+                    QueriesDT(RowLocn).Item("QueryCategory") = QueryCategory
+                    QueriesDT(RowLocn).Item("QueryClass") = QueryClass
+                    QueriesDT(RowLocn).Item("QueryInstance") = QueryInstance
+                    QueriesDT(RowLocn).Item("QueryScope") = QueryScope
+                    QueriesDT(RowLocn).Item("QueryCond") = QueryCond
+                    QueriesDT(RowLocn).Item("QueryValue") = QueryValue
+                    QueriesDT(RowLocn).Item("QueryTimeframe") = QueryTimeframe
+                    QueriesDT(RowLocn).Item("QueryRadioElapsed") = QueryElapsedRadio
+                    QueriesDT(RowLocn).Item("QueryRadioSince") = QuerySinceRadio
+                    QueriesDT(RowLocn).Item("QueryRadioBetween") = QueryBetweenRadio
+                    QueriesDT(RowLocn).Item("QueryElapsed") = QueryElapsed
+                    QueriesDT(RowLocn).Item("QueryElapsedDrop") = QueryElapsedDrop
+                    QueriesDT(RowLocn).Item("QueryFromDate") = QueryFromDate.Ticks
+                    QueriesDT(RowLocn).Item("QueryFromTime") = QueryFromTime.Ticks
+                    QueriesDT(RowLocn).Item("QueryToDate") = QueryToDate.Ticks
+                    QueriesDT(RowLocn).Item("QueryToTime") = QueryToTime.Ticks
+                    QueriesDT(RowLocn).Item("QueryJSON") = QueryJSON
+                End SyncLock
+                UpdateAutoDB("UPD", "QUERIES", QueriesDT(RowLocn))
+                HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "QUERIES", "UPDATED", QueryName, "SYSTEM")
+            End If
+            Return "OK"
+        Else
+            Return "Database integrity problem, cannot update noexistent Query"
+        End If
+    End Function
+
+
     Public Shared Function UpdTransform(TransformName As String, TransformDesc As String, transFuncOutChk As Boolean, transFuncOutRounding As Integer, TransformMessage As Structures.HAMessageStruc, Functions() As String) As String
         If TransformName <> "" Then
             If Functions.Count = 0 Then Return "No Transform Functions"
             Dim TransformRows As DataRow() = GetTransformsInfo(TransformName)
             If TransformRows.Count = 1 Then
-
                 Dim TransformRowLocn As Integer = TransFuncsDT.Rows.IndexOf(TransformRows(0))
                 If TransformRowLocn = -1 Then Return "Can't locate entry '" + TransformName + "' to update. If this is a new entry, press the 'new' icon instead."
                 SyncLock AccessDB
@@ -1826,6 +1874,22 @@ Public Class Automation
             End If
         End If
         Return "No Trigger name specified"
+    End Function
+
+    ' Delete QueryName from the datatable
+    Public Shared Function DeleteQuery(QueryName As String) As String
+        If QueryName <> "" Then
+            Dim FindRows As DataRow() = GetQueriesInfo(QueryName)                                     ' Find the records with the Transform name
+            If FindRows.Count = 1 Then                                                              ' There should only be 1 record returned
+                Dim RowLocn As Integer = QueriesDT.Rows.IndexOf(FindRows(0))
+                If RowLocn = -1 Then Return "Can't locate entry '" + QueryName + "' to delete"
+                UpdateAutoDB("DEL", "QUERIES", QueriesDT.Rows(RowLocn), RowLocn)
+
+                HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "QUERY", "DELETED", QueryName, "SYSTEM")
+                Return "OK"
+            End If
+        End If
+        Return "No Query name specified"
     End Function
 
     Public Shared Function DeleteTransform(TransformName As String) As String
