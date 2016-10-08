@@ -127,7 +127,6 @@ Namespace HAServices
 
                 Ini = New IniFile(Path.Combine(DataDir, "settings"))                                                           ' Open and cache the ini file settings
                 ClientIni = New IniFile(Path.Combine(DataDir, "clients"))
-                'ClientLocn = ClientIni.Get("general", "FileLocn", DataDir)
                 ClientLocn = ClientIni.Get("general", "FileLocn", Path.Combine({Environment.CurrentDirectory, "..", "..", "..", "..", WEB_CLIENT_DIR_NAME}))
                 If ClientLocn = "" Then ClientLocn = Path.Combine({Environment.CurrentDirectory, "..", "..", "..", "..", WEB_CLIENT_DIR_NAME})
                 'LogFile = Ini.Get("database", "MessLogName", "MessLog")                                    ' name of message log file
@@ -249,6 +248,7 @@ Namespace HAServices
 
         ' Start the timer processing thread
         Private Function StartTimerThread() As Boolean
+            'TODO: Use Task.Run instead
             Try
                 Dim TimerThread As New Thread(AddressOf TimerLoop)
                 TimerThread.IsBackground = True
@@ -536,9 +536,9 @@ Namespace HAServices
                                     Case Is = "SCREENS"
                                         Select Case myMessage.Scope
                                             Case Is = "LOAD"
-                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ClientIni.Get("Desktop", myMessage.Instance, ""))
+                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ClientIni.Get("Screens", myMessage.Instance, ""))
                                             Case Is = "SAVE"
-                                                ClientIni.Set("Desktop", myMessage.Instance, myMessage.Data)
+                                                ClientIni.Set("Screens", myMessage.Instance, myMessage.Data)
                                                 ClientIni.WriteIniSettings()
                                         End Select
                                     Case Is = "WIDGETS"

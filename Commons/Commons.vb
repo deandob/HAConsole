@@ -20,6 +20,23 @@ End Namespace
 
 Namespace Structures
     ' Main Message format between objects (plugins, network etc)
+
+    <Serializable()>
+    Public Structure HAMessageStrucTEST
+        Public Property GUID As System.Guid                 ' Unique message identifier
+        Public Property Time As DateTime                    ' Timestamp of request (from the originator)
+        Public Property Func As Byte                        ' Action or Log or Error message
+        Public Property Level As Byte                       ' Log or error level
+        Public Property Network As Byte                     ' Network number of source request
+        Public Property Category As String                  ' Category of message (eg. Weather)
+        Public Property ClassName As String                 ' Generic name of object (eg. Temperature)
+        Public Property Instance As String                  ' Specific node instance name (eg. outdoor)
+        Public Property Scope As String                     ' item scope (eg. Current temperature) or method name
+        Public Property Data As Object                      ' item data (eg. 23 degrees) OR method data
+    End Structure
+
+
+
     <Serializable()>
     Public Structure HAMessageStruc
         Public Property GUID As System.Guid                 ' Unique message identifier
@@ -195,7 +212,7 @@ Public Class IniFile
     Public Sub New(FileToOpen As String)
         SyncLock FileLock
             FileName = FileToOpen
-            FileLines = IO.File.ReadAllLines(FileName + ".ini")
+            FileLines = IO.File.ReadAllLines(FileName + ".ini")         ' cache for reading speed
         End SyncLock
     End Sub
 
