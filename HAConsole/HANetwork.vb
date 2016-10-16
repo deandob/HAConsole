@@ -304,7 +304,11 @@ Namespace HANetwork
             Dim PluginMsg As String = Regex.Replace(e, "[^\u0020-\u007F]", String.Empty)            ' Reject bad characters
             If PluginMsg.Substring(0, 2) = "{""" Then                                                       ' Simple parsing looking for JSON string
                 Dim HAMessage As New Structures.HAMessageStruc
-                HAMessage = fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(PluginMsg)
+                Try
+                    HAMessage = fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(PluginMsg)
+                Catch ex As Exception
+                    WriteConsole(True, "ERROR - Incorrect JSON received: " + PluginMsg)
+                End Try
                 If HAMessage.Func = HAConst.MessFunc.ACTION Then                   ' Handle network messages here
                     Select Case HAMessage.Category
                         Case Is = "SYSTEM"
