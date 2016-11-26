@@ -49,6 +49,7 @@ Namespace Structures
         Public Property Instance As String                  ' Specific node instance name (eg. outdoor)
         Public Property Scope As String                     ' item scope (eg. Current temperature) or method name
         Public Property Data As String                      ' item data (eg. 23 degrees) OR method data
+        Public Property OldData As String                   ' Save the previous value
     End Structure
 
     <Serializable()>

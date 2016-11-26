@@ -508,99 +508,104 @@ Namespace HAServices
                                     Case Is = "QUERY"
                                         Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = ProcessGetQuery(myMessage.Scope, myMessage.Data)      ' Send message back to client with data in datatable
                                         HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
+                                    Case Is = "ACTION"
+                                        Select Case myMessage.Scope.ToUpper
+                                            Case Is = "RUN"                                                         ' Run an event action (eg. for testing)
+                                                HAConsole.HS.RunAction(myMessage.Data)
+                                        End Select
                                     Case Is = "CONSOLE"
-                                        Select Case myMessage.Data.ToUpper
-                                            Case Is = "START"
-                                                ClientLogs = myMessage.Instance.ToUpper                 ' Global used when writing console logs to send to client named
-                                            Case Is = "STOP"
-                                                ClientLogs = ""
-                                            Case Is = "START DEBUG"
-                                                If ClientLogs <> "" Then HAConsole.DebugMode = True
-                                            Case Is = "STOP DEBUG"
-                                                If ClientLogs <> "" Then HAConsole.DebugMode = False
-                                            Case Is = "STATESTORE"
-                                                If ClientLogs <> "" Then HAConsole.ListStateStore()
-                                        End Select
-                                    Case Is = "SETTINGS"
-                                        Dim myParams As String() = ParseCmd(myMessage.Scope)
-                                        If myParams IsNot Nothing Then
-                                            Select Case myParams(0).ToUpper                     ' 1st command
-                                                Case Is = "GET"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ProcessGetMsg(myParams(1), myMessage.Data))      ' Send message back to client with data in datatable
-                                                Case Is = "PUT"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ProcessPutMsg(myParams(1), myMessage.Data))      ' Send message back to client with data in datatable
-                                                Case Is = "UPD"
-                                                Case Is = "DEL"
-                                            End Select
-                                        End If
-                                    Case Is = "SCREENS"
-                                        Select Case myMessage.Scope
-                                            Case Is = "LOAD"
-                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ClientIni.Get("Screens", myMessage.Instance, ""))
-                                            Case Is = "SAVE"
-                                                ClientIni.Set("Screens", myMessage.Instance, myMessage.Data)
-                                                ClientIni.WriteIniSettings()
-                                        End Select
-                                    Case Is = "WIDGETS"
-                                        Select Case myMessage.Scope
-                                            Case Is = "LOAD"
-                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ClientIni.Get("Widgets", myMessage.Instance, ""))
-                                            Case Is = "SAVE"
-                                                ClientIni.Set("Widgets", myMessage.Instance, myMessage.Data)
-                                                ClientIni.WriteIniSettings()
-                                            Case Is = "INISUB"
-                                                IniSubscribe(myMessage.Instance, myMessage)
-                                            Case Is = "TOOLBOX"
-                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetProgramNames("WIDGETS"))
-                                            Case Is = "CHANNELS"
-                                                SendChannelNames(myMessage.Instance, myMessage)
-                                            Case Is = "FILE"                   ' download file is in the format base64 with directory, widget number, filename, image attributes appended and separated by comma
-                                                Dim splitFile() = myMessage.Data.Split(","c)            ' filename appended to start of base64 string with ; delimiter
-                                                Select Case splitFile(0).Trim
-                                                    Case Is = "IMAGE"             ' images
-                                                        Select Case splitFile(3)
-                                                            Case Is = "data:image/png;base64", "data:image/bmp;base64", "data:image/jpeg;base64"             ' images
-                                                                Dim ImgLoc As String = Path.Combine(ClientLocn, "images")
-                                                                Dim img As System.Drawing.Image
-                                                                Dim fileBytes As Byte() = Convert.FromBase64String(splitFile(4))
-                                                                Using ms As MemoryStream = New MemoryStream
-                                                                    ms.Write(fileBytes, 0, fileBytes.Length)
-                                                                    img = System.Drawing.Image.FromStream(ms)
-                                                                    img.Save(Path.Combine(ImgLoc, splitFile(2)))
-                                                                End Using
-                                                                img.Dispose()
-                                                                myMessage.Scope = "IMAGE"
-                                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.EVENT, myMessage, splitFile(1))     ' Ask widget to reload image
-                                                        End Select
+                                                Select Case myMessage.Data.ToUpper
+                                                    Case Is = "START"
+                                                        ClientLogs = myMessage.Instance.ToUpper                 ' Global used when writing console logs to send to client named
+                                                    Case Is = "STOP"
+                                                        ClientLogs = ""
+                                                    Case Is = "START DEBUG"
+                                                        If ClientLogs <> "" Then HAConsole.DebugMode = True
+                                                    Case Is = "STOP DEBUG"
+                                                        If ClientLogs <> "" Then HAConsole.DebugMode = False
+                                                    Case Is = "STATESTORE"
+                                                        If ClientLogs <> "" Then HAConsole.ListStateStore()
                                                 End Select
-                                                splitFile = Nothing
-                                            Case Else
+                                            Case Is = "SETTINGS"
+                                                Dim myParams As String() = ParseCmd(myMessage.Scope)
+                                                If myParams IsNot Nothing Then
+                                                    Select Case myParams(0).ToUpper                     ' 1st command
+                                                        Case Is = "GET"
+                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ProcessGetMsg(myParams(1), myMessage.Data))      ' Send message back to client with data in datatable
+                                                        Case Is = "PUT"
+                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ProcessPutMsg(myParams(1), myMessage.Data))      ' Send message back to client with data in datatable
+                                                        Case Is = "UPD"
+                                                        Case Is = "DEL"
+                                                    End Select
+                                                End If
+                                            Case Is = "SCREENS"
+                                                Select Case myMessage.Scope
+                                                    Case Is = "LOAD"
+                                                        HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ClientIni.Get("Screens", myMessage.Instance, ""))      ''''''' NOT USED NOW
+                                                    Case Is = "SAVE"
+                                                        ClientIni.Set("Screens", myMessage.Instance, myMessage.Data)
+                                                        ClientIni.WriteIniSettings()
+                                                End Select
+                                            Case Is = "WIDGETS"
+                                                Select Case myMessage.Scope
+                                                    Case Is = "LOAD"
+                                                        HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, ClientIni.Get("Widgets", myMessage.Instance, ""))
+                                                    Case Is = "SAVE"
+                                                        ClientIni.Set("Widgets", myMessage.Instance, myMessage.Data)
+                                                        ClientIni.WriteIniSettings()
+                                                    Case Is = "INISUB"
+                                                        IniSubscribe(myMessage.Instance, myMessage)
+                                                    Case Is = "TOOLBOX"
+                                                        HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetProgramNames("WIDGETS"))
+                                                    Case Is = "CHANNELS"
+                                                        SendChannelNames(myMessage.Instance, myMessage)
+                                                    Case Is = "FILE"                   ' download file is in the format base64 with directory, widget number, filename, image attributes appended and separated by comma
+                                                        Dim splitFile() = myMessage.Data.Split(","c)            ' filename appended to start of base64 string with ; delimiter
+                                                        Select Case splitFile(0).Trim
+                                                            Case Is = "IMAGE"             ' images
+                                                                Select Case splitFile(3)
+                                                                    Case Is = "data:image/png;base64", "data:image/bmp;base64", "data:image/jpeg;base64"             ' images
+                                                                        Dim ImgLoc As String = Path.Combine(ClientLocn, "images")
+                                                                        Dim img As System.Drawing.Image
+                                                                        Dim fileBytes As Byte() = Convert.FromBase64String(splitFile(4))
+                                                                        Using ms As MemoryStream = New MemoryStream
+                                                                            ms.Write(fileBytes, 0, fileBytes.Length)
+                                                                            img = System.Drawing.Image.FromStream(ms)
+                                                                            img.Save(Path.Combine(ImgLoc, splitFile(2)))
+                                                                        End Using
+                                                                        img.Dispose()
+                                                                        myMessage.Scope = "IMAGE"
+                                                                        HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.EVENT, myMessage, splitFile(1))     ' Ask widget to reload image
+                                                                End Select
+                                                        End Select
+                                                        splitFile = Nothing
+                                                    Case Else
+                                                End Select
+                                            Case Is = "AUTOMATION"
+                                                Dim myParams As String() = ParseCmd(myMessage.Scope)
+                                                If myParams IsNot Nothing Then
+                                                    Select Case myParams(0).ToUpper                     ' 1st command
+                                                        Case Is = "GET"
+                                                            Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = Automation.ProcessGetMsg(myParams(1), myMessage.Data)
+                                                            If IsNothing(GetColl) Then
+                                                                HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Nothing)      ' Send message back to client with empty datatable (as CopyToDataTable errors if no rows)
+                                                            Else
+                                                                If GetColl.Count = 0 Then
+                                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Nothing)      ' Send message back to client with empty datatable (as CopyToDataTable errors if no rows)
+                                                                Else
+                                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
+                                                                End If
+                                                            End If
+                                                        Case Is = "ADD"
+                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessAddMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
+                                                        Case Is = "UPD"
+                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessUpdMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
+                                                        Case Is = "DEL"
+                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessDelMsg(myParams(1), myMessage.Data))
+                                                    End Select
+                                                End If
                                         End Select
-                                    Case Is = "AUTOMATION"
-                                        Dim myParams As String() = ParseCmd(myMessage.Scope)
-                                        If myParams IsNot Nothing Then
-                                            Select Case myParams(0).ToUpper                     ' 1st command
-                                                Case Is = "GET"
-                                                    Dim GetColl As System.Collections.Generic.IEnumerable(Of Object) = Automation.ProcessGetMsg(myParams(1), myMessage.Data)
-                                                    If IsNothing(GetColl) Then
-                                                        HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Nothing)      ' Send message back to client with empty datatable (as CopyToDataTable errors if no rows)
-                                                    Else
-                                                        If GetColl.Count = 0 Then
-                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Nothing)      ' Send message back to client with empty datatable (as CopyToDataTable errors if no rows)
-                                                        Else
-                                                            HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, GetColl)      ' Send message back to client with data in datatable
-                                                        End If
-                                                    End If
-                                                Case Is = "ADD"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessAddMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
-                                                Case Is = "UPD"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessUpdMsg(myParams(1), CType(fastJSON.JSON.Parse(myMessage.Data), System.Collections.Generic.List(Of Object))))
-                                                Case Is = "DEL"
-                                                    HomeNet.SendClient(myMessage.Instance, HAConst.MessFunc.RESPONSE, myMessage, Automation.ProcessDelMsg(myParams(1), myMessage.Data))
-                                            End Select
-                                        End If
                                 End Select
-                        End Select
 
                     Case Is = HAConst.MessFunc.RESPONSE                                                                                   ' Assume response messages are going to plugins
                         SendtoPlugin(myMessage)
@@ -816,7 +821,7 @@ Namespace HAServices
                             End With
                             If objQuery.Data = "" Then
                                 GetColl.Add(ResMsg)
-                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), KeyMsg.Value) Then         ' ElseIf for performance (when data = "" avoids testdata function)
+                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), KeyMsg.Value, False, "") Then         ' ElseIf for performance (when data = "" avoids testdata function)
                                 GetColl.Add(ResMsg)
                             End If
                         Next
@@ -847,10 +852,10 @@ Namespace HAServices
                                     .Scope = CStr(rowNum.Item("SCOPE"))
                                     .Data = CStr(rowNum.Item("DATA"))
                                 End With
-                                If objQuery.Data = "" Then
-                                    GetColl.Add(ResMsg)
-                                ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), ResMsg.Data.Trim()) Then         ' ElseIf for performance (when data = "" avoids testdata function)
-                                    GetColl.Add(ResMsg)
+                            If objQuery.Data = "" Then
+                                GetColl.Add(ResMsg)
+                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), ResMsg.Data.Trim(), False, "") Then         ' ElseIf for performance (when data = "" avoids testdata function)
+                                GetColl.Add(ResMsg)
                                 End If
                             Next
                         End If
@@ -1010,7 +1015,7 @@ Namespace HAServices
 
                 If SubmitMessage(NewMsg) = "OK" Then
                     If ClassName <> "TIME" Or Instance <> "TICK" Then
-                        SetStoreState(NewMsg)                                           ' Save message in state store
+                        NewMsg.OldData = SetStoreState(NewMsg)                                           ' Save message in state store
                         ExecuteDB(NewMsg)                                               ' Save to message log
                     End If
                     Return NewMsg
@@ -1022,15 +1027,18 @@ Namespace HAServices
         End Function
 
         ' Helper routine that saves or updates the data in the state store. Key format <Network>.<Category>.<ClassName>.<Instance>.<Scope>. Network and Categories are strings (case insensitive)
-        Public Sub SetStoreState(SetState As Structures.HAMessageStruc)
+        Public Function SetStoreState(SetState As Structures.HAMessageStruc) As String
+            Dim oldVal As String = Nothing
             Dim myKey As Structures.StateStoreKey
             myKey.Network = GetNetName(SetState.Network).ToUpper
             myKey.Category = SetState.Category.ToUpper
             myKey.ClassName = SetState.ClassName.ToUpper
             myKey.Instance = SetState.Instance.ToUpper
             myKey.Scope = SetState.Scope.ToUpper
-            HAStateStore(myKey) = SetState.Data
-        End Sub
+            If HAStateStore.ContainsKey(myKey) Then oldVal = HAStateStore(myKey)
+            HAStateStore(myKey) = SetState.Data                                             ' Thread safe
+            Return oldVal
+        End Function
 
         ' Helper routine that gets the data in the state store. Network and Catefories are strings (case insensitive)
         Public Function GetStoreState(GetState As Structures.HAMessageStruc) As String
@@ -1086,7 +1094,6 @@ Namespace HAServices
                     Dim HAMessage As Structures.HAMessageStruc = fastJSON.JSON.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr)
                     Dim PlugMsg As Structures.HAMessageStruc = HS.CreateMessage(HAMessage.ClassName, HAMessage.Func, HAMessage.Level, HAMessage.Instance, HAMessage.Scope, HAMessage.Data, HAMessage.Category, HAMessage.Network)      ' Pass onto Msgqueue for processing
                     SaveLastMsg(PlugMsg)     ' Save in plugin array for checking when sending back to plugin to avoid message echo
-                    'SubmitMessage(JSON.Instance.ToObject(Of Structures.HAMessageStruc)(RecvJsonStr))                ' Place the event on the message bus for processing
                 Catch ex As Exception
                     ResultStr = ex.ToString
                 End Try
@@ -1312,13 +1319,13 @@ Namespace HAServices
         End Function
         Public Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
                               StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
-            Return Automation.AddNewTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, TrigChgMessage, TrigStateMessage)
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, Diff As Boolean, Thresh As Boolean, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+            Return Automation.AddNewTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, Diff, Thresh, TrigChgMessage, TrigStateMessage)
         End Function
         Public Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
                               StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
-                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
-            Return Automation.UpdateTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, TrigChgMessage, TrigStateMessage)
+                              Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean, Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, Diff As Boolean, Thresh As Boolean, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+            Return Automation.UpdateTrigger(TriggerName, TriggerDesc, Script, ScriptParam, ScriptCond, ScriptData, ChgCond, StateCond, TrigDateFrom, TrigTimeFrom, TrigDateTo, TrigTimeTo, Sunrise, Sunset, Mon, Tue, Wed, Thu, Fri, Sat, Sun, DayTime, NightTime, Fortnightly, Monthly, Yearly, Active, Inactive, TimeofDay, Diff, Thresh, TrigChgMessage, TrigStateMessage)
         End Function
         Public Function DeleteTrigger(TriggerName As String) As String
             Return Automation.DeleteTrigger(TriggerName)

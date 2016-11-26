@@ -65,7 +65,7 @@ Public Class Automation
             SQLCmd.ExecuteNonQuery()
             SQLCmd.CommandText = "CREATE TABLE Triggers (TrigName TEXT PRIMARY KEY, TrigDescription TEXT, TrigScript TEXT, TrigScriptParam TEXT, TrigScriptData TEXT, TrigScriptCond INTEGER, TrigStateNetwork INTEGER, TrigStateCategory INTEGER, TrigStateClass TEXT, TrigStateInstance TEXT, TrigStateScope TEXT, TrigStateCond TEXT, TrigStateData TEXT, TrigChgNetwork INTEGER, TrigChgCategory INTEGER, TrigChgClass TEXT, TrigChgInstance TEXT, TrigChgScope TEXT, TrigChgCond TEXT, TrigChgData TEXT, "
             SQLCmd.CommandText = SQLCmd.CommandText + "TrigDateFrom INTEGER, TrigTimeFrom INTEGER, TrigDateTo INTEGER, TrigTimeTo INTEGER,TrigFortnightly BOOLEAN, TrigMonthly BOOLEAN, TrigYearly BOOLEAN, TrigSunrise BOOLEAN, TrigSunset BOOLEAN, TrigDayTime BOOLEAN, TrigNightTime BOOLEAN, "
-            SQLCmd.CommandText = SQLCmd.CommandText + "TrigMon BOOLEAN, TrigTue BOOLEAN, TrigWed BOOLEAN, TrigThu BOOLEAN, TrigFri BOOLEAN, TrigSat BOOLEAN, TrigSun BOOLEAN, TrigActive BOOLEAN, TrigInactive BOOLEAN, TrigTimeofDay INTEGER, TrigLastFired INTEGER);"
+            SQLCmd.CommandText = SQLCmd.CommandText + "TrigMon BOOLEAN, TrigTue BOOLEAN, TrigWed BOOLEAN, TrigThu BOOLEAN, TrigFri BOOLEAN, TrigSat BOOLEAN, TrigSun BOOLEAN, TrigActive BOOLEAN, TrigInactive BOOLEAN, TrigTimeofDay INTEGER, TrigLastFired INTEGER, TrigChgDiff BOOLEAN, TrigChgThresh BOOLEAN);"
             SQLCmd.ExecuteNonQuery()
             SQLCmd.CommandText = "CREATE TABLE TransFuncs (TFName TEXT PRIMARY KEY, TFDescription TEXT, Enabled BOOLEAN, RoundDec INTEGER, Network INTEGER, Category INTEGER, Class TEXT, Instance TEXT, Scope TEXT);"
             SQLCmd.ExecuteNonQuery()
@@ -481,7 +481,6 @@ Public Class Automation
         WriteConsole(True, "Loading history data from database...")
         Dim FunctionsRecs() As DataRow = GetFunctionsInfo("")
         For Each rec As DataRow In FunctionsRecs
-            '''            Exit For       '----------------------------------------------------------------------------------------------------------------
             Dim Duration = ""
             If CStr(rec("Type")) <> "" Then              ' Process functions with a valid history field
                 Dim StartDate As New DateTime
@@ -711,14 +710,13 @@ Public Class Automation
                                     If Date.FromBinary(CLng(myEvent(0).Item("EventStart"))) > Date.Now Then Continue For
                                     If CLng(myEvent(0).Item("EventStop")) <> 0 Then If Date.FromBinary(CLng(myEvent(0).Item("EventStop"))) < Date.Now Then Continue For       ' null date is 0 so check it first
 
-                                    Dim RunActions As String = "Actions: "
+                                    Dim ActionsRun As String = "Actions: "
                                     Dim myEventActions() As DataRow = GetEventActionsInfo(EventName)                                    ' Get the actions associated with the event
                                     For Each EventAction As DataRow In myEventActions                                                   ' Loop through all the actions tagged to the event
-                                        Dim myActions() As DataRow = GetActionsInfo(CStr(EventAction.Item("ActionName")))
-                                        RunActions = RunActions + CStr(myActions(0).Item("ActionName")) + ", "                          ' Record the actions processed
-                                        System.Threading.ThreadPool.QueueUserWorkItem(AddressOf ProcessAction, myActions(0))            ' Multithreaded with threadpool (25 threads per CPU concurrent max)
+                                        RunAction(CStr(EventAction.Item("ActionName")))
+                                        ActionsRun = ActionsRun + CStr(EventAction.Item("ActionName")) + ", "                          ' Record the actions processed
                                     Next
-                                    HS.CreateMessage("EVENT", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "RUN", EventName, RunActions.Substring(0, RunActions.Length - 2), "SYSTEM")
+                                    HS.CreateMessage("EVENT", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "RUN", EventName, ActionsRun.Substring(0, ActionsRun.Length - 2), "SYSTEM")
 
                                     ' When an event is active as the triggers have fired, update the event last fired & number of times fields in the DB
                                     Dim RowLocn As Integer = EventsDT.Rows.IndexOf(myEvent(0))
@@ -740,6 +738,12 @@ Public Class Automation
         End SyncLock
 
         Return True
+    End Function
+
+    ' Run an Action
+    Public Shared Function RunAction(ActionName As String) As Boolean
+        Dim myActions() As DataRow = GetActionsInfo(ActionName)
+        System.Threading.ThreadPool.QueueUserWorkItem(AddressOf ProcessAction, myActions(0))            ' Multithreaded with threadpool (25 threads per CPU concurrent max)
     End Function
 
     ' THREAD: This routine processes the specific action and called when an event condition is met (called from trigger processing and manually from the UI)
@@ -804,7 +808,7 @@ Public Class Automation
         If CStr(row("TrigScript")) <> "" Then                      ' Don't process if there is no script entry
             Dim ScriptResult As String = ""
             ScriptResult = HS.RunScript(CStr(row("TrigScript")), CStr(row("TrigScriptParam")))  ' Run the script specified in the trigger with a parameter
-            Return TestData(CInt(row("TrigScriptCond")), CStr(row("TrigScriptData")), ScriptResult)     ' Return true or false depending if the script results = the data field in the trigger for the script
+            Return TestData(CInt(row("TrigScriptCond")), CStr(row("TrigScriptData")), ScriptResult, False, "")     ' Return true or false depending if the script results = the data field in the trigger for the script
         Else
             Return True                                                                                 ' No script, so return true
         End If
@@ -905,39 +909,54 @@ Public Class Automation
         MatchMessage = False
         If CStr(row("TrigChgClass")) <> "" Then If CStr(row("TrigChgClass")).ToUpper <> EventMessage.ClassName.ToUpper Then Exit Function ' Don't test if the field is empty (treat as wildcard)
         If CStr(row("TrigChgInstance")) <> "" Then If CStr(row("TrigChgInstance")).ToUpper <> EventMessage.Instance.ToUpper Then Exit Function
-        'If CStr(row("TrigChgScope")) <> "" Then If CStr(row("TrigChgScope")).ToUpper <> EventMessage.Scope.ToUpper Then Exit Function
         If CStr(row("TrigChgScope")) <> "" Then If EventMessage.Scope.IndexOf(CStr(row("TrigChgScope")), StringComparison.OrdinalIgnoreCase) = -1 Then Exit Function ' allow partial match for scope
         If CStr(row("TrigChgData")) = "" Then MatchMessage = True : Exit Function ' If no data is specified and we get this far, then we have a match
-        If TestData(CInt(row("TrigChgCond")), CStr(row("TrigChgData")), EventMessage.Data) = False Then Exit Function
+        If TestData(CInt(row("TrigChgCond")), CStr(row("TrigChgData")).Trim(), EventMessage.Data.Trim(), CBool(row("TrigChgThresh")), EventMessage.OldData) = False Then Exit Function
+        If Not IsNothing(EventMessage.OldData) AndAlso EventMessage.Data.Trim() = EventMessage.OldData.Trim() And CBool(row("TrigChgDiff")) Then Exit Function                        ' If Diff checkbox is selected but the new data isn't different to the old store data, no match even if data matches
         If CByte(row("TrigChgCategory")) <> 0 Then If HS.GetCatName(CByte(row("TrigChgCategory"))) <> EventMessage.Category Then Exit Function ' Don't test for the category field if cateogry = 0 (All Categories)
         If CByte(row("TrigChgNetwork")) <> 0 Then If CByte(row("TrigChgNetwork")) <> EventMessage.Network Then Exit Function ' Don't test for the network field if network = 0 (All networks)
         MatchMessage = True                                                                                             ' Made it this far, so the event trigger is a match
     End Function
 
     ' Helper function that takes 2 strings and tests them against the condition, adjusting for either string or numerical
-    Public Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String) As Boolean
+    Public Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String, Thresh As Boolean, OldData As String) As Boolean
         TestData = False
-        Dim TrigVal As Single = 0, EventVal As Single = 0
+        Dim TrigVal As Single = 0, EventVal As Single = 0, OldVal As Single 
         Select Case TestCond                                                                                ' Check data, either string matches or number
             Case Is = HAConst.TestCond.EQUALS
                 If TrigData.ToUpper <> TestWith.ToUpper Then Exit Function ' String or numeric values, ignore case
-            Case Is = HAConst.TestCond.NOT_EQUAL
-                If TrigData.ToUpper = TestWith.ToUpper Then Exit Function ' String or numeric values
-            Case Is = HAConst.TestCond.GREATER_THAN                                                          ' Assume numeric, and strip out any extra data after a ',' delimiter
                 If Single.TryParse(TrigData, TrigVal) And Single.TryParse(TestWith, EventVal) Then          ' Check that I have a valid number in both DB & trigger fields
                     If TrigVal >= EventVal Then Exit Function ' Exit if the event value is less than the trigger value 
                 Else
                     Exit Function                                                                           ' Either number is invalid, so don't match
                 End If
-            Case Is = HAConst.TestCond.LESS_THAN
+
+            Case Is = HAConst.TestCond.NOT_EQUAL
+                If TrigData.ToUpper = TestWith.ToUpper Then Exit Function ' String or numeric values
+
+            Case Is = HAConst.TestCond.GREATER_THAN                                                          ' Assume numeric, and strip out any extra data after a ',' delimiter
                 If Single.TryParse(TrigData, TrigVal) And Single.TryParse(TestWith, EventVal) Then          ' Check that I have a valid number in both DB & trigger fields
-                    If TrigVal <= EventVal Then Exit Function ' Exit if the event value is greater than the trigger value 
+                    If TrigVal >= EventVal Then Exit Function ' Exit if the event value is less than the trigger value
+                    If Thresh And Single.TryParse(OldData, OldVal) Then
+                        If OldVal > TrigVal Then Exit Function ' Threshold = Looking for old value to be less than or equal to trigger value and new value greater than trigger value before continuing.
+                    End If
                 Else
                     Exit Function                                                                           ' Either number is invalid, so don't match
                 End If
-            Case Is = HAConst.TestCond.CHANGE
 
-            Case Is = HAConst.TestCond.CONTAINS
+            Case Is = HAConst.TestCond.LESS_THAN
+                If Single.TryParse(TrigData, TrigVal) And Single.TryParse(TestWith, EventVal) Then          ' Check that I have a valid number in both DB & trigger fields
+                    If TrigVal <= EventVal Then Exit Function ' Exit if the event value is greater than the trigger value 
+                    If Thresh And Single.TryParse(OldData, OldVal) Then
+                        If OldVal < TrigVal Then Exit Function ' Threshold = Looking for old value to be greayer than or equal to trigger value and new value greater than trigger value.
+                    End If
+                Else
+                    Exit Function                                                                           ' Either number is invalid, so don't match
+                End If
+
+            Case Is = HAConst.TestCond.CHANGE                   ' TODO
+
+            Case Is = HAConst.TestCond.CONTAINS                 ' TODO
 
         End Select
         TestData = True                                                                                     ' Made it this far so we have a match
@@ -967,7 +986,7 @@ Public Class Automation
                 GetTable.Columns.Add("TrigLastFired", GetType(String))
                 For Each row As DataRow In GetTable.Rows
                     row("TrigDateFrom") = Date.FromBinary(CLng(row("Temp1"))).ToString("s") + "Z"       ' Convert to ISO 8601 UTC strings
-                    row("TrigTimeFrom") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp2"))).ToString("HH:mm") + "Z"
+                    row("TrigTimeFrom") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp2"))).ToString("HH: mm") + "Z"
                     row("TrigDateTo") = Date.FromBinary(CLng(row("Temp3"))).ToString("s") + "Z"
                     row("TrigTimeTo") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp4"))).ToString("HH:mm") + "Z"
                     row("TrigTimeofDay") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp5"))).ToString("HH:mm") + "Z"
@@ -1114,7 +1133,7 @@ Public Class Automation
                 Result = AddNewTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))),
                                   CInt(CStr(DataArray.Item("trigStateCond"))), UTCKind(CStr(DataArray.Item("trigFromDate"))), UTCKind(CStr(DataArray.Item("trigFromTime"))), UTCKind(CStr(DataArray.Item("trigToDate"))), UTCKind(CStr(DataArray.Item("trigToTime"))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")),
                                   CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")),
-                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), UTCKind(CStr(DataArray.Item("trigTimeofDay"))), TrigChgMessage, TrigStateMessage)
+                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), UTCKind(CStr(DataArray.Item("trigTimeofDay"))), CBool(DataArray.Item("trigChgDiff")), CBool(DataArray.Item("trigChgThresh")), TrigChgMessage, TrigStateMessage)
             Case Is = "ACTIONS"
                 Dim ActionMessage As Structures.HAMessageStruc
                 ActionMessage.Network = CByte(DataArray.Item("actionNetwork"))
@@ -1181,7 +1200,7 @@ Public Class Automation
                 Result = UpdateTrigger(CStr(DataArray.Item("trigName")), CStr(DataArray.Item("trigDesc")), CStr(DataArray.Item("trigScriptName")), CStr(DataArray.Item("trigScriptParam")), CInt(DataArray.Item("trigScriptCond")), CStr(DataArray.Item("trigScriptValue")), CInt(CStr(DataArray.Item("trigChgCond"))),
                                   CInt(CStr(DataArray.Item("trigStateCond"))), UTCKind(CStr(DataArray.Item("trigFromDate"))), UTCKind(CStr(DataArray.Item("trigFromTime"))), UTCKind(CStr(DataArray.Item("trigToDate"))), UTCKind(CStr(DataArray.Item("trigToTime"))), CBool(CStr(DataArray.Item("trigChkSunrise"))), CBool(DataArray.Item("trigChkSunset")), CBool(DataArray.Item("trigChkMon")), CBool(DataArray.Item("trigChkTue")), CBool(DataArray.Item("trigChkWed")),
                                   CBool(DataArray.Item("trigChkThu")), CBool(DataArray.Item("trigChkFri")), CBool(DataArray.Item("trigChkSat")), CBool(DataArray.Item("trigChkSun")), CBool(DataArray.Item("trigChkDay")), CBool(DataArray.Item("trigChkNight")), CBool(DataArray.Item("trigChkFortnight")),
-                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), UTCKind(CStr(DataArray.Item("trigTimeofDay"))), TrigChgMessage, TrigStateMessage)
+                                  CBool(DataArray.Item("trigChkMonth")), CBool(DataArray.Item("trigChkYear")), CBool(DataArray.Item("trigChkActive")), CBool(DataArray.Item("trigChkInactive")), UTCKind(CStr(DataArray.Item("trigTimeofDay"))), CBool(DataArray.Item("trigChgDiff")), CBool(DataArray.Item("trigChgThresh")), TrigChgMessage, TrigStateMessage)
             Case Is = "ACTIONS"
                 Dim ActionMessage As Structures.HAMessageStruc
                 ActionMessage.Network = CByte(DataArray.Item("actionNetwork"))
@@ -1338,7 +1357,7 @@ Public Class Automation
     Public Shared Function AddNewTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
                                  StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
                                  Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean,
-                                 Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+                                 Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, Diff As Boolean, Thresh As Boolean, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
         If TriggerName <> "" Then
             If GetTriggersInfo(TriggerName).Length > 0 Then
                 Return "The entry '" + TriggerName + "' already exists. If this is an update request not a new trigger, press the update icon instead."
@@ -1386,6 +1405,8 @@ Public Class Automation
                 NewRow.Item("TrigInactive") = Inactive
                 NewRow.Item("TrigTimeofDay") = New DateTime(0).Add(TimeofDay.TimeOfDay).Ticks
                 NewRow.Item("TrigLastFired") = 0
+                NewRow.Item("TrigChgDiff") = Diff
+                NewRow.Item("TrigChgThresh") = Thresh
                 UpdateAutoDB("ADD", "TRIGGERS", NewRow)
                 HS.CreateMessage("AUTOMATION", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "TRIGGERS", "ADDED", TriggerName, "SYSTEM")
             End If
@@ -1618,7 +1639,7 @@ Public Class Automation
     Public Shared Function UpdateTrigger(TriggerName As String, TriggerDesc As String, Script As String, ScriptParam As String, ScriptCond As Integer, ScriptData As String, ChgCond As Integer,
                               StateCond As Integer, TrigDateFrom As DateTime, TrigTimeFrom As DateTime, TrigDateTo As DateTime, TrigTimeTo As DateTime, Sunrise As Boolean, Sunset As Boolean, Mon As Boolean, Tue As Boolean, Wed As Boolean,
                               Thu As Boolean, Fri As Boolean, Sat As Boolean, Sun As Boolean, DayTime As Boolean, NightTime As Boolean, Fortnightly As Boolean,
-                              Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
+                              Monthly As Boolean, Yearly As Boolean, Active As Boolean, Inactive As Boolean, TimeofDay As DateTime, Diff As Boolean, Thresh As Boolean, TrigChgMessage As Structures.HAMessageStruc, TrigStateMessage As Structures.HAMessageStruc) As String
         If TriggerName <> "" Then
             Dim TriggerRows As DataRow() = GetTriggersInfo(TriggerName)
             If TriggerRows.Count = 1 Then                                                           ' Should only be 1 record
@@ -1665,6 +1686,8 @@ Public Class Automation
                     TriggersDT(RowLocn).Item("TrigActive") = Active
                     TriggersDT(RowLocn).Item("TrigInactive") = Inactive
                     TriggersDT(RowLocn).Item("TrigTimeofDay") = New DateTime(0).Add(TimeofDay.TimeOfDay).Ticks
+                    TriggersDT(RowLocn).Item("TrigChgDiff") = Diff
+                    TriggersDT(RowLocn).Item("TrigChgThresh") = Thresh
                     TriggersDT(RowLocn).Item("TrigLastFired") = 0                  ' Trigger adjusted, so clear last fired field.
                 End SyncLock
                 UpdateAutoDB("UPD", "TRIGGERS", TriggersDT(RowLocn))

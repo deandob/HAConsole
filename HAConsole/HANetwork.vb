@@ -463,9 +463,14 @@ Namespace HANetwork
         Private Function SendJSONMsg(Client As String, myJSON As String) As Boolean
             Try
                 'HAClients(Client).ClientContext.Send(myJSON)
-                HAClients(Client).ClientContext.WriteString(myJSON)
+                Dim tt = HAClients
+                If HAClients(Client).ClientContext.IsConnected Then
+                    HAClients(Client).ClientContext.WriteString(myJSON)
+                Else
+                    HAClients("HOMESERVER").ClientContext.WriteString(myJSON)       ' HACK to send to homeserver as assuming this if from a remote connection if not registered
+                End If
                 Return True
-            Catch
+            Catch err As Exception
                 Return False
             End Try
         End Function
