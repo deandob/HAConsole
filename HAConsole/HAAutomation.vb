@@ -820,7 +820,7 @@ Public Class Automation
         If CStr(row("TrigScript")) <> "" Then                      ' Don't process if there is no script entry
             Dim ScriptResult As String = ""
             ScriptResult = HS.RunScript(CStr(row("TrigScript")), CStr(row("TrigScriptParam")))  ' Run the script specified in the trigger with a parameter
-            Return TestData(CInt(row("TrigScriptCond")), CStr(row("TrigScriptData")), ScriptResult, False, "")     ' Return true or false depending if the script results = the data field in the trigger for the script
+            Return TestData(CInt(row("TrigScriptCond")), CStr(row("TrigScriptData")), ScriptResult, False, False, "")     ' Return true or false depending if the script results = the data field in the trigger for the script
         Else
             Return True                                                                                 ' No script, so return true
         End If
@@ -915,7 +915,7 @@ Public Class Automation
         If CStr(row("TrigChgInstance")) <> "" Then If CStr(row("TrigChgInstance")).ToUpper <> EventMessage.Instance.ToUpper Then Exit Function
         If CStr(row("TrigChgScope")) <> "" Then If EventMessage.Scope.IndexOf(CStr(row("TrigChgScope")), StringComparison.OrdinalIgnoreCase) = -1 Then Exit Function ' allow partial match for scope
         If CStr(row("TrigChgData")) = "" Then MatchMessage = True : Exit Function ' If no data is specified and we get this far, then we have a match
-        If TestData(CInt(row("TrigChgCond")), CStr(row("TrigChgData")).Trim(), EventMessage.Data.Trim(), CBool(row("TrigChgThresh")), EventMessage.OldData) = False Then Exit Function
+        If TestData(CInt(row("TrigChgCond")), CStr(row("TrigChgData")).Trim(), EventMessage.Data.Trim(), CBool(row("TrigChgDiff")), CBool(row("TrigChgThresh")), EventMessage.OldData) = False Then Exit Function
         If Not IsNothing(EventMessage.OldData) AndAlso EventMessage.Data.Trim() = EventMessage.OldData.Trim() And CBool(row("TrigChgDiff")) Then Exit Function                        ' If Diff checkbox is selected but the new data isn't different to the old store data, no match even if data matches
         If CByte(row("TrigChgCategory")) <> 0 Then If HS.GetCatName(CByte(row("TrigChgCategory"))) <> EventMessage.Category Then Exit Function ' Don't test for the category field if cateogry = 0 (All Categories)
         If CByte(row("TrigChgNetwork")) <> 0 Then If CByte(row("TrigChgNetwork")) <> EventMessage.Network Then Exit Function ' Don't test for the network field if network = 0 (All networks)
@@ -923,14 +923,17 @@ Public Class Automation
     End Function
 
     ' Helper function that takes 2 strings and tests them against the condition, adjusting for either string or numerical
-    Public Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String, Thresh As Boolean, OldData As String) As Boolean
+    Public Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String, Diff As Boolean, Thresh As Boolean, OldData As String) As Boolean
         TestData = False
         Dim TrigVal As Single = 0, EventVal As Single = 0, OldVal As Single
         Select Case TestCond                                                                                ' Check data, either string matches or number
             Case Is = HAConst.TestCond.EQUALS
                 If TrigData.ToUpper <> TestWith.ToUpper Then Exit Function ' String or numeric values, ignore case
                 If Single.TryParse(TrigData, TrigVal) And Single.TryParse(TestWith, EventVal) Then          ' Check that I have a valid number in both DB & trigger fields
-                    If TrigVal >= EventVal Then Exit Function ' Exit if the event value is less than the trigger value 
+                    If TrigVal <> EventVal Then Exit Function              ' Exit if the event value is not than the trigger value
+                    If Diff And Single.TryParse(OldData, OldVal) Then
+                        If OldVal = TrigVal Then Exit Function             ' Diff = old value must be different to new value
+                    End If
                 Else
                     Exit Function                                                                           ' Either number is invalid, so don't match
                 End If

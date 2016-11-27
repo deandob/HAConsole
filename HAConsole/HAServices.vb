@@ -821,7 +821,7 @@ Namespace HAServices
                             End With
                             If objQuery.Data = "" Then
                                 GetColl.Add(ResMsg)
-                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), KeyMsg.Value, False, "") Then         ' ElseIf for performance (when data = "" avoids testdata function)
+                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), KeyMsg.Value, False, False, "") Then         ' ElseIf for performance (when data = "" avoids testdata function)
                                 GetColl.Add(ResMsg)
                             End If
                         Next
@@ -854,7 +854,7 @@ Namespace HAServices
                                 End With
                             If objQuery.Data = "" Then
                                 GetColl.Add(ResMsg)
-                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), ResMsg.Data.Trim(), False, "") Then         ' ElseIf for performance (when data = "" avoids testdata function)
+                            ElseIf Automation.TestData(ResTest, objQuery.Data.ToUpper(), ResMsg.Data.Trim(), False, False, "") Then         ' ElseIf for performance (when data = "" avoids testdata function)
                                 GetColl.Add(ResMsg)
                                 End If
                             Next
