@@ -35,8 +35,6 @@ Namespace Structures
         Public Property Data As Object                      ' item data (eg. 23 degrees) OR method data
     End Structure
 
-
-
     <Serializable()>
     Public Structure HAMessageStruc
         Public Property GUID As System.Guid                 ' Unique message identifier

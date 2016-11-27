@@ -35,9 +35,13 @@ Public Class Automation
 
     Private Shared AutoFile As String                                   ' Location for the automation DB file
 
-    ' NOTE: All time/dates are in UTC
+    Private Structure ProcessObj
+        Public Property EventMessage As Structures.HAMessageStruc
+        Public Property Actions As DataRow
+    End Structure
 
-    'TODO: Dynamic update to the trigger and transform engines when changes to the DB are made. Currently have to reset to lock in a change.
+
+    ' NOTE: All time/dates are in UTC, dates sent to/from clients are always in ISO8601 text format
 
 #Region "Initialization"
     ' Initialize the automation database including creating the tables if the db file doesn't exist
@@ -55,7 +59,7 @@ Public Class Automation
                 SQLCmd.CommandText = "PRAGMA page_size=" + HS.Ini.Get("System", "LinuxClusterSize", "1024") + ";"c          ' Linux
             End If
             SQLCmd.ExecuteNonQuery()
-            SQLCmd.CommandText = "CREATE TABLE Actions (ActionName TEXT PRIMARY KEY, ActionDescription TEXT, ActionScript TEXT, ActionScriptParam TEXT, ActionDelay INTEGER, ActionRandom BOOLEAN, ActionFunction INTEGER, ActionLogLevel INTEGER, ActionNetwork INTEGER, ActionCategory INTEGER, ActionClass TEXT, ActionInstance TEXT, ActionScope TEXT, ActionData TEXT);"
+            SQLCmd.CommandText = "CREATE TABLE Actions (ActionName TEXT PRIMARY KEY, ActionDescription TEXT, ActionScript TEXT, ActionScriptParam TEXT, ActionDelay INTEGER, ActionRandom BOOLEAN, ActionFunction INTEGER, ActionLogLevel INTEGER, ActionNetwork INTEGER, ActionCategory INTEGER, ActionClass TEXT, ActionInstance TEXT, ActionScope TEXT, ActionData TEXT, ActionTrigTopic BOOLEAN);"
             SQLCmd.ExecuteNonQuery()
             SQLCmd.CommandText = "CREATE TABLE EventActions (ID INTEGER PRIMARY KEY, EventName TEXT, ActionName TEXT);"
             SQLCmd.ExecuteNonQuery()
@@ -329,10 +333,10 @@ Public Class Automation
                                         FuncMessage.Data = CStr(SumVal)
                                         HS.SetStoreState(FuncMessage)
                                         FuncMessage.Scope = "_SUMTIME" + Duration
-                                        FuncMessage.Data = CStr(SumTime)
+                                        FuncMessage.Data = CStr(sumTime)
                                         HS.SetStoreState(FuncMessage)
 
-                                        If SumTime <> 0 Then myVal = CSng(SumVal / SumTime) Else myVal = 0 ' Weighted average
+                                        If sumTime <> 0 Then myVal = CSng(SumVal / sumTime) Else myVal = 0 ' Weighted average
 
                                     Case Is = "SUM"
 
@@ -677,7 +681,7 @@ Public Class Automation
 
                         ' Apply rounding to the result, and create new event message
                         'WriteConsole(False, "Transform created message: " + HS.GetCatName(CByte(TFRow(0)("Category"))) + "/" + CStr(TFRow(0)("Class")) + " " + CStr(TFRow(0)("Instance")) + ":" + CStr(CalcVal) + " (" + CStr(TFRow(0)("Scope")) + ")")
-                        HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")), _
+                        HS.CreateMessage(CStr(TFRow(0)("Class")), HAConst.MessFunc.EVENT, HAConst.MessLog.NORMAL, CStr(TFRow(0)("Instance")), CStr(TFRow(0)("Scope")),
                                          CStr(Math.Round(CalcVal, CInt(TFRow(0)("RoundDec")), MidpointRounding.AwayFromZero)), HS.GetCatName(CByte(TFRow(0)("Category"))), GlobalVars.myNetNum)
                     End If
                 End If
@@ -713,7 +717,7 @@ Public Class Automation
                                     Dim ActionsRun As String = "Actions: "
                                     Dim myEventActions() As DataRow = GetEventActionsInfo(EventName)                                    ' Get the actions associated with the event
                                     For Each EventAction As DataRow In myEventActions                                                   ' Loop through all the actions tagged to the event
-                                        RunAction(CStr(EventAction.Item("ActionName")))
+                                        RunAction(CStr(EventAction.Item("ActionName")), EventMessage)
                                         ActionsRun = ActionsRun + CStr(EventAction.Item("ActionName")) + ", "                          ' Record the actions processed
                                     Next
                                     HS.CreateMessage("EVENT", HAConst.MessFunc.LOG, HAConst.MessLog.NORMAL, "RUN", EventName, ActionsRun.Substring(0, ActionsRun.Length - 2), "SYSTEM")
@@ -741,15 +745,19 @@ Public Class Automation
     End Function
 
     ' Run an Action
-    Public Shared Function RunAction(ActionName As String) As Boolean
-        Dim myActions() As DataRow = GetActionsInfo(ActionName)
-        System.Threading.ThreadPool.QueueUserWorkItem(AddressOf ProcessAction, myActions(0))            ' Multithreaded with threadpool (25 threads per CPU concurrent max)
+    Public Shared Function RunAction(ActionName As String, EventMessage As Structures.HAMessageStruc) As Boolean
+        Dim ProcObj As ProcessObj
+        ProcObj.EventMessage = EventMessage
+        ProcObj.Actions = GetActionsInfo(ActionName)(0)
+        System.Threading.ThreadPool.QueueUserWorkItem(AddressOf ProcessAction, ProcObj)            ' Multithreaded with threadpool (25 threads per CPU concurrent max)
     End Function
 
     ' THREAD: This routine processes the specific action and called when an event condition is met (called from trigger processing and manually from the UI)
     Public Shared Sub ProcessAction(stateInfo As Object)
         Try
-            Dim ActionRow As DataRow = DirectCast(stateInfo, DataRow)                                                               ' Thread handler cannot pass strings, just objects, so convert to DataRow object
+            Dim ProcObj As ProcessObj = DirectCast(stateInfo, ProcessObj)                                                           ' Thread handler cannot pass strings, just objects, so convert to DataRow object
+            Dim ActionRow As DataRow = DirectCast(ProcObj.Actions, DataRow)
+            Dim EventMessage As Structures.HAMessageStruc = ProcObj.EventMessage
 
             ' Make the thread wait a random number of seconds up to the number specified in ActionDelay
             Dim ActionDelay As Integer = CInt(ActionRow("ActionDelay"))
@@ -767,7 +775,11 @@ Public Class Automation
 
             ' Send a Message if it is specified
             If CStr(ActionRow("ActionData")) <> "" Then
-                HS.CreateMessage(CStr(ActionRow("ActionClass")), HAConst.MessFunc.EVENT, CByte(ActionRow("ActionLogLevel")), CStr(ActionRow("ActionInstance")), CStr(ActionRow("ActionScope")), CStr(ActionRow("ActionData")), HS.GetCatName(CByte(ActionRow("ActionCategory"))), CByte(ActionRow("ActionNetwork")))
+                If CBool(ActionRow("ActionTrigTopic")) Then                                                                         ' Use Action topic or the trigger message topic (useful if trigger set for a group, we can action just the device that created the message, not the whole group)
+                    HS.CreateMessage(EventMessage.ClassName, HAConst.MessFunc.EVENT, CByte(ActionRow("ActionLogLevel")), EventMessage.Instance, EventMessage.Scope, CStr(ActionRow("ActionData")), EventMessage.Category, EventMessage.Network)
+                Else
+                    HS.CreateMessage(CStr(ActionRow("ActionClass")), HAConst.MessFunc.EVENT, CByte(ActionRow("ActionLogLevel")), CStr(ActionRow("ActionInstance")), CStr(ActionRow("ActionScope")), CStr(ActionRow("ActionData")), HS.GetCatName(CByte(ActionRow("ActionCategory"))), CByte(ActionRow("ActionNetwork")))
+                End If
             End If
         Catch ex As Exception                                                                                                       ' THis is the top level exception as we are ServiceState.RUNNING on a separate thread
             HS.HandleAppErrors(HAConst.MessLog.MAJOR, "SYSTEM", "AUTOMATION", "ProcessAction", "ERROR", "Error in processing actions. ", ex)
@@ -817,14 +829,6 @@ Public Class Automation
     ' Check to see if the time triggers are matched (called for each event as well as each minute change). To keep logic simple & fast, test for the negative so that we don't need to test every condition
     Private Shared Function MatchTime(row As DataRow) As Boolean
         MatchTime = False
-
-        Dim aa = Date.UtcNow
-        Dim xx = Date.FromBinary(CLng(row.Item("TrigDateFrom")))
-        Dim yy = Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes
-        Dim zz = Date.FromBinary(CLng(row.Item("TrigDateFrom"))).AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeFrom"))).TimeOfDay.TotalMinutes)
-        Dim xxx = Date.FromBinary(CLng(row.Item("TrigDateTo")))
-        Dim yyy = Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes
-        Dim zzz = Date.FromBinary(CLng(row.Item("TrigDateTo"))).AddMinutes(Date.FromBinary(CLng(row.Item("TrigTimeTo"))).TimeOfDay.TotalMinutes)
 
         ' TODO: Not reading from / to dates correctly as when converting to UTC we lose a day due to time difference (as time isn't added). So when just dealing with dates, don't use UTC. Need to adjust the below
         If CLng(row.Item("TrigDateFrom")) <> 0 Then
@@ -921,7 +925,7 @@ Public Class Automation
     ' Helper function that takes 2 strings and tests them against the condition, adjusting for either string or numerical
     Public Shared Function TestData(TestCond As Integer, TrigData As String, TestWith As String, Thresh As Boolean, OldData As String) As Boolean
         TestData = False
-        Dim TrigVal As Single = 0, EventVal As Single = 0, OldVal As Single 
+        Dim TrigVal As Single = 0, EventVal As Single = 0, OldVal As Single
         Select Case TestCond                                                                                ' Check data, either string matches or number
             Case Is = HAConst.TestCond.EQUALS
                 If TrigData.ToUpper <> TestWith.ToUpper Then Exit Function ' String or numeric values, ignore case
@@ -986,10 +990,22 @@ Public Class Automation
                 GetTable.Columns.Add("TrigLastFired", GetType(String))
                 For Each row As DataRow In GetTable.Rows
                     row("TrigDateFrom") = Date.FromBinary(CLng(row("Temp1"))).ToString("s") + "Z"       ' Convert to ISO 8601 UTC strings
-                    row("TrigTimeFrom") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp2"))).ToString("HH: mm") + "Z"
+                    If CLng(row("Temp2")) = 0 Then
+                        row("TrigTimeFrom") = "1975-01-01T00:00Z"       ' No Time set so use magic year 1975
+                    Else
+                        row("TrigTimeFrom") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp2"))).ToString("HH:mm") + "Z"
+                    End If
                     row("TrigDateTo") = Date.FromBinary(CLng(row("Temp3"))).ToString("s") + "Z"
-                    row("TrigTimeTo") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp4"))).ToString("HH:mm") + "Z"
-                    row("TrigTimeofDay") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp5"))).ToString("HH:mm") + "Z"
+                    If CLng(row("Temp4")) = 0 Then
+                        row("TrigTimeTo") = "1975-01-01T00:00Z"       ' No Time set so use magic year 1975
+                    Else
+                        row("TrigTimeTo") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp4"))).ToString("HH:mm") + "Z"
+                    End If
+                    If CLng(row("Temp5")) = 0 Then
+                        row("TrigTimeofDay") = "1975-01-01T00:00Z"       ' No Time set so use magic year 1975
+                    Else
+                        row("TrigTimeofDay") = "1970-01-01T" + Date.FromBinary(CLng(row("Temp5"))).ToString("HH:mm") + "Z"
+                    End If
                     row("TrigLastFired") = Date.FromBinary(CLng(row("Temp6"))).ToString("s") + "Z"
                 Next
                 For i = 1 To 6
@@ -1015,7 +1031,7 @@ Public Class Automation
                 GetTable.Columns.Remove("Temp2")
                 GetTable.Columns.Remove("Temp3")
                 GetRow = GetTable.Select()
-                    Case Is = "EVENTACTIONS"
+            Case Is = "EVENTACTIONS"
                 Dim GetTable As DataTable = GetEventActionsInfo(Data).CopyToDataTable
                 GetTable.Columns.Add("Desc")                            ' Add desc column via datatable
                 GetRow = GetTable.Select()
@@ -1051,9 +1067,17 @@ Public Class Automation
                 GetTable.Columns.Add("QueryToTime", GetType(String))
                 For Each row As DataRow In GetTable.Rows
                     row("QueryFromDate") = Date.FromBinary(CLng(row("Temp1"))).ToString("s") + "Z"       ' Convert to ISO 8601 UTC strings
-                    row("QueryFromTime") = Date.FromBinary(CLng(row("Temp2"))).ToString("s") + "Z"
+                    If CLng(row("Temp2")) = 0 Then
+                        row("QueryFromTime") = "1975-01-01T00:00Z"       ' No Time set so use magic year 1975
+                    Else
+                        row("QueryFromTime") = Date.FromBinary(CLng(row("Temp2"))).ToString("s") + "Z"
+                    End If
                     row("QueryToDate") = Date.FromBinary(CLng(row("Temp3"))).ToString("s") + "Z"
-                    row("QueryToTime") = Date.FromBinary(CLng(row("Temp4"))).ToString("s") + "Z"
+                    If CLng(row("Temp4")) = 0 Then
+                        row("QueryToTime") = "1975-01-01T00:00Z"       ' No Time set so use magic year 1975
+                    Else
+                        row("QueryToTime") = Date.FromBinary(CLng(row("Temp4"))).ToString("s") + "Z"
+                    End If
                 Next
                 GetTable.Columns.Remove("Temp1")
                 GetTable.Columns.Remove("Temp2")
@@ -1144,7 +1168,7 @@ Public Class Automation
                 ActionMessage.Data = CStr(DataArray.Item("actionData"))
                 Dim delay As Integer = 0
                 Integer.TryParse(CStr(DataArray.Item("actionDelay")), delay)
-                Result = AddNewAction(CStr(DataArray.Item("actionName")), CStr(DataArray.Item("actionDesc")), delay, CBool(DataArray.Item("actionChkRnd")), CStr(DataArray.Item("actionScriptName")), CStr(DataArray.Item("actionScriptParam")), ActionMessage)
+                Result = AddNewAction(CStr(DataArray.Item("actionName")), CStr(DataArray.Item("actionDesc")), delay, CBool(DataArray.Item("actionChkRnd")), CStr(DataArray.Item("actionScriptName")), CStr(DataArray.Item("actionScriptParam")), CBool(DataArray.Item("actionTrigTopic")), ActionMessage)
             Case Is = "EVENTS"
                 Dim ActionNames As String() = CType(DataArray.Item("eventActions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
@@ -1211,7 +1235,7 @@ Public Class Automation
                 ActionMessage.Data = CStr(DataArray.Item("actionData"))
                 Dim delay As Integer = 0
                 Integer.TryParse(CStr(DataArray.Item("actionDelay")), delay)
-                Result = UpdateAction(CStr(DataArray.Item("actionName")), CStr(DataArray.Item("actionDesc")), delay, CBool(DataArray.Item("actionChkRnd")), CStr(DataArray.Item("actionScriptName")), CStr(DataArray.Item("actionScriptParam")), ActionMessage)
+                Result = UpdateAction(CStr(DataArray.Item("actionName")), CStr(DataArray.Item("actionDesc")), delay, CBool(DataArray.Item("actionChkRnd")), CStr(DataArray.Item("actionScriptName")), CStr(DataArray.Item("actionScriptParam")), CBool(DataArray.Item("actionTrigTopic")), ActionMessage)
             Case Is = "EVENTS"
                 Dim ActionNames As String() = CType(DataArray.Item("eventActions"), List(Of Object)).Cast(Of String).ToArray()
                 Dim TrigNames As String() = CType(DataArray.Item("eventTrigs"), List(Of Object)).Cast(Of String).ToArray()
@@ -1322,7 +1346,7 @@ Public Class Automation
     End Function
 
     ' Update the automation database with a new action item (errors captured thrown to calling routine)
-    Public Shared Function AddNewAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
+    Public Shared Function AddNewAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, TrigTopic As Boolean, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
         If ActionName <> "" Then
             If GetActionsInfo(ActionName).Length > 0 Then
                 Return "The entry '" + ActionName + "' already exists. If this is an update request not a new action, press the update icon instead."                                                                    ' The record already exists
@@ -1334,6 +1358,7 @@ Public Class Automation
                 NewRow.Item("ActionScriptParam") = ScriptParam
                 NewRow.Item("ActionDelay") = Delay
                 NewRow.Item("ActionRandom") = Random
+                NewRow.Item("ActionTrigTopic") = TrigTopic
 
                 NewRow.Item("ActionFunction") = HAMessage.Func
                 NewRow.Item("ActionLogLevel") = HAMessage.Level
@@ -1362,6 +1387,10 @@ Public Class Automation
             If GetTriggersInfo(TriggerName).Length > 0 Then
                 Return "The entry '" + TriggerName + "' already exists. If this is an update request not a new trigger, press the update icon instead."
             Else
+                If TimeofDay.Year = 1975 Then TimeofDay = New Date(0)                   ' Magic year indicating TimeOfDay not set, so set to 0
+                If TrigTimeFrom.Year = 1975 Then TrigTimeFrom = New Date(0)
+                If TrigTimeTo.Year = 1975 Then TrigTimeTo = New Date(0)
+
                 Dim NewRow As DataRow = TriggersDT.NewRow()
                 NewRow.Item("TrigName") = TriggerName
                 NewRow.Item("TrigDescription") = TriggerDesc
@@ -1424,6 +1453,9 @@ Public Class Automation
             If GetQueriesInfo(QueryName).Length > 0 Then
                 Return "The entry '" + QueryName + "' already exists. If this is an update request not a new query, press the update icon instead."                                                                    ' The record already exists
             Else
+                If QueryFromTime.Year = 1975 Then QueryFromTime = New Date(0)                                 ' Magic year indicating Time not set, so set to 0
+                If QueryToTime.Year = 1975 Then QueryFromTime = New Date(0)
+
                 Dim NewRow As DataRow = QueriesDT.NewRow()
                 NewRow.Item("QueryName") = QueryName
                 NewRow.Item("QueryDescription") = QueryDescription
@@ -1645,6 +1677,11 @@ Public Class Automation
             If TriggerRows.Count = 1 Then                                                           ' Should only be 1 record
                 Dim RowLocn As Integer = TriggersDT.Rows.IndexOf(TriggerRows(0))
                 If RowLocn = -1 Then Return "Can't locate entry '" + TriggerName + "' to update. If this is a new entry, press the 'new' icon instead."
+
+                If TimeofDay.Year = 1975 Then TimeofDay = New Date(0)                   ' Magic year indicating TimeOfDay not set, so set to 0
+                If TrigTimeFrom.Year = 1975 Then TrigTimeFrom = New Date(0)
+                If TrigTimeTo.Year = 1975 Then TrigTimeTo = New Date(0)
+
                 SyncLock AccessDB
                     TriggersDT(RowLocn).Item("TrigDescription") = TriggerDesc
                     TriggersDT(RowLocn).Item("TrigScript") = Script
@@ -1703,7 +1740,7 @@ Public Class Automation
     End Function
 
     ' Update actions DB
-    Public Shared Function UpdateAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
+    Public Shared Function UpdateAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, TrigTopic As Boolean, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
         If ActionName <> "" Then
             Dim ActionRows As DataRow() = GetActionsInfo(ActionName)
             If ActionRows.Count = 1 Then                                                            ' Should only be 1 record
@@ -1715,6 +1752,7 @@ Public Class Automation
                     ActionsDT(RowLocn).Item("ActionScriptParam") = ScriptParam
                     ActionsDT(RowLocn).Item("ActionDelay") = Delay
                     ActionsDT(RowLocn).Item("ActionRandom") = Random
+                    ActionsDT(RowLocn).Item("ActionTrigTopic") = TrigTopic
 
                     ActionsDT(RowLocn).Item("ActionFunction") = HAMessage.Func
                     ActionsDT(RowLocn).Item("ActionLogLevel") = HAMessage.Level
@@ -1746,6 +1784,9 @@ Public Class Automation
             If QueryRows.Count = 1 Then                                                            ' Should only be 1 record
                 Dim RowLocn As Integer = QueriesDT.Rows.IndexOf(QueryRows(0))
                 If RowLocn = -1 Then Return "Can't locate entry '" + QueryName + "' to update. If this is a new entry, press the 'new' icon instead."
+                If QueryFromTime.Year = 1975 Then QueryFromTime = New Date(0)                                 ' Magic year indicating Time not set, so set to 0
+                If QueryToTime.Year = 1975 Then QueryFromTime = New Date(0)
+
                 SyncLock AccessDB
                     QueriesDT(RowLocn).Item("QueryDescription") = QueryDescription
                     QueriesDT(RowLocn).Item("QueryType") = QueryType
@@ -1885,7 +1926,8 @@ Public Class Automation
     ' Delete Trigger from the database and trigger datatable
     Public Shared Function DeleteTrigger(TriggerName As String) As String
         If TriggerName <> "" Then
-            If EventTriggersDT.Select("TrigName='" + TriggerName + "'").Count > 0 Then Return "Can't locate entry '" + TriggerName + "' to update" ' Can't delete if there is a dependent record in events table
+            Dim CheckEventsDR As DataRow() = EventTriggersDT.Select("TrigName='" + TriggerName + "'")
+            If CheckEventsDR.Count > 0 Then Return "Can't delete trigger '" + TriggerName + "' as it used in " + CheckEventsDR.Count.ToString + " Event(s). Remove from Event(s) first."  ' Can't delete if there is a dependent record in events table
             Dim FindRows As DataRow() = GetTriggersInfo(TriggerName)                                     ' Find the records with the trigger name
             If FindRows.Count = 1 Then                                                                  ' There should only be 1 record returned
                 Dim RowLocn As Integer = TriggersDT.Rows.IndexOf(FindRows(0))

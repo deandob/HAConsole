@@ -1012,10 +1012,10 @@ Namespace HAServices
                     .Scope = Scope
                     .Data = Data
                 End With
+                NewMsg.OldData = SetStoreState(NewMsg)                                           ' Save old state from state store
 
                 If SubmitMessage(NewMsg) = "OK" Then
                     If ClassName <> "TIME" Or Instance <> "TICK" Then
-                        NewMsg.OldData = SetStoreState(NewMsg)                                           ' Save message in state store
                         ExecuteDB(NewMsg)                                               ' Save to message log
                     End If
                     Return NewMsg
@@ -1330,11 +1330,11 @@ Namespace HAServices
         Public Function DeleteTrigger(TriggerName As String) As String
             Return Automation.DeleteTrigger(TriggerName)
         End Function
-        Public Function AddNewAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
-            Return Automation.AddNewAction(ActionName, ActionDescription, Delay, Random, Script, ScriptParam, HAMessage)
+        Public Function AddNewAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, TrigTopic As Boolean, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
+            Return Automation.AddNewAction(ActionName, ActionDescription, Delay, Random, Script, ScriptParam, TrigTopic, HAMessage)
         End Function
-        Public Function UpdateAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
-            Return Automation.UpdateAction(ActionName, ActionDescription, Delay, Random, Script, ScriptParam, HAMessage)
+        Public Function UpdateAction(ActionName As String, ActionDescription As String, Delay As Integer, Random As Boolean, Script As String, ScriptParam As String, TrigTopic As Boolean, Optional HAMessage As Structures.HAMessageStruc = Nothing) As String
+            Return Automation.UpdateAction(ActionName, ActionDescription, Delay, Random, Script, ScriptParam, TrigTopic, HAMessage)
         End Function
         Public Function DeleteAction(ActionName As String) As String
             Return Automation.DeleteAction(ActionName)

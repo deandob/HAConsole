@@ -166,7 +166,6 @@ Namespace HANetwork
         Public Function Start() As Boolean
             Try
                 WSServer.Start()
-                WriteConsole(True, "start: " + Thread.CurrentThread.ManagedThreadId.ToString)
                 wsListener = Task.Run(Function() AcceptWebSocketClientsAsync(WSServer, cancellation.Token))
 
                 WSPlugins.Start()
