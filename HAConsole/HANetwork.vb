@@ -465,8 +465,6 @@ Namespace HANetwork
                 Dim tt = HAClients
                 If HAClients(Client).ClientContext.IsConnected Then
                     HAClients(Client).ClientContext.WriteString(myJSON)
-                Else
-                    HAClients("HOMESERVER").ClientContext.WriteString(myJSON)       ' HACK to send to homeserver as assuming this if from a remote connection if not registered
                 End If
                 Return True
             Catch err As Exception

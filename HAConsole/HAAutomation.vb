@@ -930,12 +930,9 @@ Public Class Automation
             Case Is = HAConst.TestCond.EQUALS
                 If TrigData.ToUpper <> TestWith.ToUpper Then Exit Function ' String or numeric values, ignore case
                 If Single.TryParse(TrigData, TrigVal) And Single.TryParse(TestWith, EventVal) Then          ' Check that I have a valid number in both DB & trigger fields
-                    If TrigVal <> EventVal Then Exit Function              ' Exit if the event value is not than the trigger value
                     If Diff And Single.TryParse(OldData, OldVal) Then
                         If OldVal = TrigVal Then Exit Function             ' Diff = old value must be different to new value
                     End If
-                Else
-                    Exit Function                                                                           ' Either number is invalid, so don't match
                 End If
 
             Case Is = HAConst.TestCond.NOT_EQUAL
